@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/main.ps1" }
+    { "source": "/", "destination": "/main.ps1" },
+    { "source": "/f", "destination": "/force.ps1" }
   ]
 }
