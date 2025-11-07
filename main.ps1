@@ -70,6 +70,43 @@ function Test-FileInUse {
     }
 }
 
+# Remove empty directories recursively
+function Remove-EmptyDirectories {
+    param (
+        [string[]]$Directories,
+        [string[]]$ExcludedExtensions
+    )
+    
+    Write-Host "[*] Scanning for empty directories..."
+    
+    foreach ($dir in $Directories) {
+        $expandedDir = $ExecutionContext.InvokeCommand.ExpandString($dir)
+        
+        if (-not (Test-Path $expandedDir)) {
+            continue
+        }
+        
+        # Get all subdirectories recursively
+        $allDirs = @(Get-ChildItem -Path $expandedDir -Directory -Recurse -Force -ErrorAction SilentlyContinue)
+        
+        # Process from deepest to shallowest
+        $allDirs | Sort-Object -Property FullName -Descending | ForEach-Object {
+            try {
+                $items = @(Get-ChildItem -Path $_.FullName -Force -ErrorAction SilentlyContinue)
+                
+                if ($items.Count -eq 0) {
+                    Remove-Item -Path $_.FullName -Force -ErrorAction Stop
+                    $script:DeletedFolderCount++
+                    Write-Host "[+] Removed empty directory: $($_.FullName)" -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Host "[-] Failed to remove empty directory $($_.FullName): $_" -ForegroundColor Red
+            }
+        }
+    }
+}
+
 # Check if item should be excluded
 function Test-ShouldExclude {
     param(
@@ -270,7 +307,7 @@ function Get-DiskInfo {
 
 # Main program
 try {
-    Write-Host "[*] Starting nScript v1.0.0"
+    Write-Host "[*] Starting nScript v1.0.1"
     
     if ($Force) {
         Write-Host "[!] WARNING: Force mode enabled - all files will be removed!" -ForegroundColor Yellow
@@ -292,6 +329,11 @@ try {
             -BrowserInfo $playbook.configuration.BrowserInformation `
             -ForceMode $Force
     }
+    
+    # Remove empty directories
+    Remove-EmptyDirectories `
+        -Directories $playbook.configuration.UserDirectories `
+        -ExcludedExtensions $playbook.configuration.ExcludedExtensions
     
     # Empty the recycle bin
     try {
