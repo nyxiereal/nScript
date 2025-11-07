@@ -4,3 +4,4 @@ System Volume Information
 *.old
 .vercel
 a
+deploy.ps1

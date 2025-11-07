@@ -124,6 +124,7 @@ function Test-ShouldExclude {
 }
 
 # Remove old user files/directories
+# Remove old user files/directories
 function Remove-OldUserDirectories {
     param (
         [string[]]$Directories,
@@ -148,7 +149,11 @@ function Remove-OldUserDirectories {
         }
         
         Write-Host "[*] Checking directory: $expandedDir"
-        $items = Get-ChildItem -Path $expandedDir -Force -ErrorAction SilentlyContinue
+        # Get all items recursively
+        $items = Get-ChildItem -Path $expandedDir -Recurse -Force -ErrorAction SilentlyContinue
+        
+        # Sort by depth (deepest first) so we delete files before their parent folders
+        $items = $items | Sort-Object { $_.FullName.Split([IO.Path]::DirectorySeparatorChar).Count } -Descending
         
         foreach ($item in $items) {
             try {
@@ -162,10 +167,22 @@ function Remove-OldUserDirectories {
                 
                 # In force mode, ignore age check
                 if ($ForceMode -or $ageHours -gt $OlderThanHours) {
-                    if (Test-FileInUse -FilePath $item.FullName) {
+                    # Skip if it's a directory with excluded files
+                    if ($item.PSIsContainer) {
+                        $hasExcludedFiles = Get-ChildItem -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue | 
+                        Where-Object { -not $_.PSIsContainer -and $ExcludedExtensions -contains $_.Extension.ToLower() }
+                        
+                        if ($hasExcludedFiles) {
+                            Write-Host "[*] Skipping folder with excluded files: $($item.FullName)" -ForegroundColor Yellow
+                            continue
+                        }
+                    }
+                    
+                    if (-not $item.PSIsContainer -and (Test-FileInUse -FilePath $item.FullName)) {
                         Write-Host "[!] File in use, skipping: $($item.FullName)" -ForegroundColor Yellow
                         continue
                     }
+                    
                     Remove-Item -Path $item.FullName -Recurse -Force -ErrorAction Stop
                     
                     # Increment counters
