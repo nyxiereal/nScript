@@ -95,7 +95,7 @@ function Remove-EmptyDirectories {
                 $items = @(Get-ChildItem -Path $_.FullName -Force -ErrorAction SilentlyContinue)
                 
                 if ($items.Count -eq 0) {
-                    Remove-Item -Path $_.FullName -Force -ErrorAction Stop
+                    Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
                     $script:DeletedFolderCount++
                     Write-Host "[+] Removed empty directory: $($_.FullName)" -ForegroundColor Green
                 }
@@ -172,7 +172,7 @@ function Remove-OldUserDirectories {
                     # Skip if it's a directory with excluded files
                     if ($item.PSIsContainer) {
                         $hasExcludedFiles = Get-ChildItem -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue | 
-                            Where-Object { -not $_.PSIsContainer -and $ExcludedExtensions -contains $_.Extension.ToLower() }
+                        Where-Object { -not $_.PSIsContainer -and $ExcludedExtensions -contains $_.Extension.ToLower() }
                         
                         if ($hasExcludedFiles) {
                             Write-Host "[*] Skipping folder with excluded files: $($item.FullName)" -ForegroundColor Yellow
@@ -185,7 +185,7 @@ function Remove-OldUserDirectories {
                         continue
                     }
                     
-                    Remove-Item -Path $item.FullName -Recurse -Force -ErrorAction Stop
+                    Remove-Item -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
                     
                     # Increment counters
                     if ($item.PSIsContainer) {
@@ -224,7 +224,7 @@ function Remove-BrowserDataIfNotRunning {
         if ($procRunning -and $ForceMode) {
             Write-Host "[!] FORCE MODE: Killing process $proc" -ForegroundColor Yellow
             try {
-                Stop-Process -Name ($proc -replace '.exe$', '') -Force -ErrorAction Stop
+                Stop-Process -Name ($proc -replace '.exe$', '') -Force -ErrorAction SilentlyContinue
                 Write-Host "[+] Killed process $proc" -ForegroundColor Green
                 Write-Host "[*] Waiting 3 seconds for cleanup..."
                 Start-Sleep -Seconds 3
@@ -272,7 +272,7 @@ function Remove-BrowserDataIfNotRunning {
                         Start-Sleep -Seconds 3
                     }
                     
-                    Remove-Item -Path $expandedDir -Recurse -Force -ErrorAction Stop
+                    Remove-Item -Path $expandedDir -Recurse -Force -ErrorAction SilentlyContinue
                     $script:DeletedFolderCount++
                     Write-Host "[+] Removed: $expandedDir" -ForegroundColor Green
                     $success = $true
@@ -296,7 +296,7 @@ function Get-DiskInfo {
     
     try {
         # Get disk usage
-        $drive = Get-PSDrive -Name ($DriveLetter -replace ':', '') -ErrorAction Stop
+        $drive = Get-PSDrive -Name ($DriveLetter -replace ':', '') -ErrorAction SilentlyContinue
         $totalGB = [math]::Round($drive.Free / 1GB + $drive.Used / 1GB, 2)
         $freeGB = [math]::Round($drive.Free / 1GB, 2)
         $usedGB = [math]::Round($drive.Used / 1GB, 2)
@@ -324,7 +324,7 @@ function Get-DiskInfo {
 
 # Main program
 try {
-    Write-Host "[*] Starting nScript v1.0.2"
+    Write-Host "[*] Starting nScript v1.0.3"
     
     if ($Force) {
         Write-Host "[!] WARNING: Force mode enabled - all files will be removed!" -ForegroundColor Yellow
@@ -354,7 +354,7 @@ try {
     
     # Empty the recycle bin
     try {
-        Clear-RecycleBin -Force -ErrorAction Stop
+        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
         Write-Host "[+] Recycle bin emptied" -ForegroundColor Green
     }
     catch {
