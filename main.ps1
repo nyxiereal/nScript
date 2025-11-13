@@ -9,8 +9,8 @@ $UserHome = $env:USERPROFILE
 $script:DeletedFileCount = 0
 $script:DeletedFolderCount = 0
 
-# Default playbook configuration
-$DefaultPlaybook = @{
+# Default configuration
+$Configuration = @{
     configuration = @{
         OnlyRemoveOlderThanHours = 24
         UserDirectories          = @(
@@ -26,7 +26,13 @@ $DefaultPlaybook = @{
             "$UserHome\Links",
             "$UserHome\Favorites",
             "$UserHome\AppData\Local\Temp",
-            "$UserHome\AppData\Roaming\Microsoft\Windows\Recent"
+            "$UserHome\AppData\Roaming\Microsoft\Windows\Recent",
+            "$UserHome\AppData\Local\Low\Microsoft\Internet Explorer",
+            "$UserHome\AppData\Local\Microsoft\Windows\INetCache",
+            "$UserHome\AppData\Local\Microsoft\Windows\INetCookies",
+            "$UserHome\AppData\Roaming\Microsoft\Office\Recent",
+            "$UserHome\AppData\Local\Microsoft\Windows\Clipboard",
+            "$UserHome\.cache"
         )
         BrowserInformation       = @{
             "firefox.exe" = @(
@@ -324,14 +330,14 @@ function Get-DiskInfo {
 
 # Main program
 try {
-    Write-Host "[*] Starting nScript v1.0.3"
+    Write-Host "[*] Starting nScript v1.0.4"
     
     if ($Force) {
         Write-Host "[!] WARNING: Force mode enabled - all files will be removed!" -ForegroundColor Yellow
         Start-Sleep -Seconds 3
     }
     
-    $playbook = $DefaultPlaybook
+    $playbook = $Configuration
     
     if ($playbook.configuration.UserDirectories) {
         Remove-OldUserDirectories `
