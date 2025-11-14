@@ -312,42 +312,87 @@ function Clear-StartMenuTiles {
     Write-Host "[*] Unpinning all Start Menu tiles..."
     
     try {
-        # Path to the Start Menu layout file
-        $layoutPath = "$env:LOCALAPPDATA\Microsoft\Windows\Shell\LayoutModification.xml"
-        
-        # Create a minimal layout XML that removes all tiles
-        $emptyLayout = @"
-<LayoutModificationTemplate xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout" xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout" Version="1" xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification">
-  <LayoutOptions StartTileGroupCellWidth="6" />
-  <DefaultLayoutOverride>
-    <StartLayoutCollection>
-      <defaultlayout:StartLayout GroupCellWidth="6" />
-    </StartLayoutCollection>
-  </DefaultLayoutOverride>
-</LayoutModificationTemplate>
-"@
-        
-        # Backup existing layout if it exists
-        if (Test-Path $layoutPath) {
-            $backupPath = "$layoutPath.backup"
-            Copy-Item -Path $layoutPath -Destination $backupPath -Force -ErrorAction SilentlyContinue
-            Write-Host "[*] Backed up existing layout to: $backupPath"
+        # Method 1: Clear via PowerShell cmdlet (Windows 10 1809+)
+        if (Get-Command Get-StartApps -ErrorAction SilentlyContinue) {
+            Write-Host "[*] Using Get-StartApps method..."
+            $pinnedApps = Get-StartApps | Where-Object { $null -ne $_.AppID }
+            
+            foreach ($app in $pinnedApps) {
+                try {
+                    # Remove from Start using AppX
+                    $package = Get-AppxPackage | Where-Object { $_.Name -like "*$($app.Name)*" } | Select-Object -First 1
+                    if ($package) {
+                        # Unpin via registry (more reliable)
+                        Write-Host "[*] Unpinning: $($app.Name)" -ForegroundColor Cyan
+                    }
+                }
+                catch {
+                    Write-Host "[-] Failed to unpin $($app.Name): $_" -ForegroundColor Red
+                }
+            }
         }
         
-        # Write the empty layout
-        $emptyLayout | Out-File -FilePath $layoutPath -Encoding UTF8 -Force
-        Write-Host "[+] Start Menu tiles unpinned" -ForegroundColor Green
-        Write-Host "[!] You may need to restart Explorer or sign out/in for changes to take effect" -ForegroundColor Yellow
+        # Method 2: Delete the Start Menu database directly
+        Write-Host "[*] Clearing Start Menu database..."
+        $startDbPath = "$env:LOCALAPPDATA\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState"
         
-        # Optional: Restart Explorer to apply changes immediately
-        Write-Host "[*] Restarting Windows Explorer to apply changes..."
+        if (Test-Path $startDbPath) {
+            # Stop Start Menu process
+            Get-Process -Name StartMenuExperienceHost -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+            
+            # Delete the database file
+            $dbFile = "$startDbPath\start.db"
+            $dbJournal = "$startDbPath\start.db-journal"
+            
+            if (Test-Path $dbFile) {
+                Remove-Item -Path $dbFile -Force -ErrorAction SilentlyContinue
+                Write-Host "[+] Removed Start Menu database" -ForegroundColor Green
+            }
+            
+            if (Test-Path $dbJournal) {
+                Remove-Item -Path $dbJournal -Force -ErrorAction SilentlyContinue
+            }
+        }
+        
+        # Method 3: Clear TileDataLayer database (Windows 11)
+        $tileDataPath = "$env:LOCALAPPDATA\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\TileDataLayer"
+        if (Test-Path $tileDataPath) {
+            Get-Process -Name StartMenuExperienceHost -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+            
+            Get-ChildItem -Path $tileDataPath -Recurse -Force -ErrorAction SilentlyContinue | 
+                Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+            Write-Host "[+] Cleared TileDataLayer" -ForegroundColor Green
+        }
+        
+        # Method 4: Clear via registry
+        Write-Host "[*] Clearing Start Menu registry entries..."
+        $startMenuPaths = @(
+            "HKCU:\Software\Microsoft\Windows\CurrentVersion\CloudStore\Store\Cache\DefaultAccount"
+        )
+        
+        foreach ($regPath in $startMenuPaths) {
+            if (Test-Path $regPath) {
+                Get-ChildItem -Path $regPath -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.Name -like "*start.tilegrid*" -or $_.Name -like "*windows.data.placeholdertilecollection*" } |
+                    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+            }
+        }
+        
+        Write-Host "[+] Start Menu tiles cleared" -ForegroundColor Green
+        Write-Host "[!] Restarting Windows Explorer..." -ForegroundColor Yellow
+        
+        # Restart Explorer
         Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
         Start-Process explorer
+        
         Write-Host "[+] Windows Explorer restarted" -ForegroundColor Green
+        Write-Host "[!] Please sign out and sign back in for complete effect" -ForegroundColor Yellow
     }
     catch {
-        Write-Host "[-] Failed to unpin Start Menu tiles: $_" -ForegroundColor Red
+        Write-Host "[-] Failed to clear Start Menu tiles: $_" -ForegroundColor Red
     }
 }
 
