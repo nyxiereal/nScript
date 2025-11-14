@@ -179,7 +179,7 @@ function Remove-OldUserDirectories {
                 if ($ForceMode -or $ageHours -gt $OlderThanHours) {
                     if ($item.PSIsContainer) {
                         $hasExcludedFiles = Get-ChildItem -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue |
-                            Where-Object { -not $_.PSIsContainer -and $ExcludedExtensions -contains $_.Extension.ToLower() }
+                        Where-Object { -not $_.PSIsContainer -and $ExcludedExtensions -contains $_.Extension.ToLower() }
 
                         if ($hasExcludedFiles) {
                             Write-Host "[*] Skipping folder with excluded files: $($item.FullName)" -ForegroundColor Yellow
@@ -350,7 +350,7 @@ function Clear-StartMenuTiles {
             Start-Sleep -Seconds 1
             
             Get-ChildItem -Path $tileDataPath -Recurse -Force -ErrorAction SilentlyContinue | 
-                Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+            Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
             Write-Host "[+] Cleared TileDataLayer" -ForegroundColor Green
         }
         
@@ -363,8 +363,8 @@ function Clear-StartMenuTiles {
         foreach ($regPath in $startMenuPaths) {
             if (Test-Path $regPath) {
                 Get-ChildItem -Path $regPath -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.Name -like "*start.tilegrid*" -or $_.Name -like "*windows.data.placeholdertilecollection*" } |
-                    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                Where-Object { $_.Name -like "*start.tilegrid*" -or $_.Name -like "*windows.data.placeholdertilecollection*" } |
+                Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
             }
         }
         
@@ -419,7 +419,7 @@ function Clear-QuickAccessRecent {
         $jumpListPath = "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations"
         if (Test-Path $jumpListPath) {
             Get-ChildItem -Path $jumpListPath -File -ErrorAction SilentlyContinue | 
-                Remove-Item -Force -ErrorAction SilentlyContinue
+            Remove-Item -Force -ErrorAction SilentlyContinue
             Write-Host "[+] Cleared jump list recent files" -ForegroundColor Green
         }
         
@@ -427,7 +427,7 @@ function Clear-QuickAccessRecent {
         $customDestPath = "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
         if (Test-Path $customDestPath) {
             Get-ChildItem -Path $customDestPath -File -ErrorAction SilentlyContinue | 
-                Remove-Item -Force -ErrorAction SilentlyContinue
+            Remove-Item -Force -ErrorAction SilentlyContinue
             Write-Host "[+] Cleared custom destinations" -ForegroundColor Green
         }
         
@@ -449,6 +449,47 @@ function Clear-QuickAccessRecent {
     }
     catch {
         Write-Host "[-] Failed to clear Quick Access: $_" -ForegroundColor Red
+    }
+}
+
+function Enable-DarkMode {
+    $personalizeKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+    if (-not (Test-Path $personalizeKey)) {
+        New-Item -Path $personalizeKey -Force | Out-Null
+    }
+
+    foreach ($value in @("SystemUsesLightTheme", "AppsUseLightTheme")) {
+        Set-ItemProperty -Path $personalizeKey -Name $value -Value 0 -Type DWord -Force
+    }
+
+    Set-ItemProperty -Path $personalizeKey -Name "ForceDarkMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+}
+
+function Set-WallpaperFromUrl {
+    param([string]$Url)
+
+    $wallpaperDir = Join-Path $env:USERPROFILE "Pictures"
+    if (-not (Test-Path $wallpaperDir)) {
+        New-Item -Path $wallpaperDir -ItemType Directory -Force | Out-Null
+    }
+
+    $wallpaperPath = Join-Path $wallpaperDir "tapeta.png"
+
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $wallpaperPath -UseBasicParsing -ErrorAction SilentlyContinue
+        Add-Type -MemberDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class NativeMethods {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+}
+"@
+        [NativeMethods]::SystemParametersInfo(20, 0, $wallpaperPath, 3) | Out-Null
+        Write-Host "[+] Wallpaper set to $wallpaperPath" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "[-] Failed to download or set wallpaper: $_" -ForegroundColor Red
     }
 }
 
@@ -487,6 +528,12 @@ try {
 
     # Clear File Explorer Quick Access
     Clear-QuickAccessRecent
+
+    # Enable dark mode
+    Enable-DarkMode
+
+    # Set wallpaper
+    Set-WallpaperFromUrl -Url "https://proxy.meowery.eu/tapeta.png"
     
     # Empty the recycle bin
     try {
