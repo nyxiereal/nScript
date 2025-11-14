@@ -310,7 +310,7 @@ function Clear-StartMenuTiles {
                     # Remove from Start using AppX
                     $package = Get-AppxPackage | Where-Object { $_.Name -like "*$($app.Name)*" } | Select-Object -First 1
                     if ($package) {
-                        # Unpin via registry (more reliable)
+                        # Unpin via registry (more reliable)    
                         Write-Host "[*] Unpinning: $($app.Name)" -ForegroundColor Cyan
                     }
                 }
@@ -384,9 +384,77 @@ function Clear-StartMenuTiles {
     }
 }
 
+# Clear File Explorer Quick Access recent files
+function Clear-QuickAccessRecent {
+    Write-Host "[*] Clearing File Explorer Quick Access recent files..."
+    
+    try {
+        # Method 1: Clear via registry (Recent Files)
+        $recentFilesPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs"
+        if (Test-Path $recentFilesPath) {
+            Remove-Item -Path $recentFilesPath -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "[+] Cleared recent documents registry" -ForegroundColor Green
+        }
+        
+        # Method 2: Clear Quick Access automatic folders
+        $shell32 = New-Object -ComObject Shell.Application
+        
+        # Get the Quick Access namespace
+        $quickAccess = $shell32.Namespace("shell:::{679f85cb-0220-4080-b29b-5540cc05aab6}")
+        
+        if ($quickAccess) {
+            # Remove recent files from Quick Access
+            $quickAccess.Items() | Where-Object { $_.IsFolder -eq $false } | ForEach-Object {
+                try {
+                    $quickAccess.RemoveItem($_.Path)
+                }
+                catch {
+                    # Silently continue if item can't be removed
+                }
+            }
+            Write-Host "[+] Cleared Quick Access recent files" -ForegroundColor Green
+        }
+        
+        # Method 3: Clear AutomaticDestinations (Jump Lists)
+        $jumpListPath = "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations"
+        if (Test-Path $jumpListPath) {
+            Get-ChildItem -Path $jumpListPath -File -ErrorAction SilentlyContinue | 
+                Remove-Item -Force -ErrorAction SilentlyContinue
+            Write-Host "[+] Cleared jump list recent files" -ForegroundColor Green
+        }
+        
+        # Method 4: Clear CustomDestinations
+        $customDestPath = "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
+        if (Test-Path $customDestPath) {
+            Get-ChildItem -Path $customDestPath -File -ErrorAction SilentlyContinue | 
+                Remove-Item -Force -ErrorAction SilentlyContinue
+            Write-Host "[+] Cleared custom destinations" -ForegroundColor Green
+        }
+        
+        # Method 5: Clear TypedPaths (File Explorer address bar history)
+        $typedPathsPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths"
+        if (Test-Path $typedPathsPath) {
+            Remove-Item -Path $typedPathsPath -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "[+] Cleared typed paths history" -ForegroundColor Green
+        }
+        
+        # Method 6: Clear RunMRU (Run dialog history)
+        $runMRUPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU"
+        if (Test-Path $runMRUPath) {
+            Remove-Item -Path $runMRUPath -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "[+] Cleared Run dialog history" -ForegroundColor Green
+        }
+        
+        Write-Host "[+] File Explorer Quick Access cleared" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "[-] Failed to clear Quick Access: $_" -ForegroundColor Red
+    }
+}
+
 # Main program
 try {
-    Write-Host "[*] Starting nScript v1.0.5"
+    Write-Host "[*] Starting nScript v1.0.6"
     
     if ($Force) {
         Write-Host "[!] WARNING: Force mode enabled - all files will be removed!" -ForegroundColor Yellow
@@ -416,6 +484,9 @@ try {
     
     # Unpin Start Menu tiles
     Clear-StartMenuTiles
+
+    # Clear File Explorer Quick Access
+    Clear-QuickAccessRecent
     
     # Empty the recycle bin
     try {
