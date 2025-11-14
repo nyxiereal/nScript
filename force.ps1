@@ -28,7 +28,9 @@ $Configuration = @{
             "$UserHome\AppData\Local\Microsoft\Windows\INetCookies",
             "$UserHome\AppData\Roaming\Microsoft\Office\Recent",
             "$UserHome\AppData\Local\Microsoft\Windows\Clipboard",
-            "$UserHome\.cache"
+            "$UserHome\.cache",
+            "$UserHome\AppData\Local\Roblox",
+            "$UserHome\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Roblox"
         )
         BrowserInformation       = @{
             "firefox.exe" = @(
@@ -120,6 +122,11 @@ function Test-ShouldExclude {
     if (-not $Item.PSIsContainer) {
         $extension = $Item.Extension.ToLower()
         if ($ExcludedExtensions -contains $extension) {
+            # Allow deletion if filename contains "roblox" (case-insensitive)
+            if ($Item.Name -match "roblox") {
+                Write-Host "[*] Allowing deletion of excluded extension with 'roblox' in name: $($Item.FullName)" -ForegroundColor Cyan
+                return $false
+            }
             return $true
         }
     }
@@ -127,7 +134,6 @@ function Test-ShouldExclude {
     return $false
 }
 
-# Remove old user files/directories
 # Remove old user files/directories
 function Remove-OldUserDirectories {
     param (
@@ -318,12 +324,58 @@ function Get-DiskInfo {
     }
 }
 
+# Unpin all Start Menu tiles
+function Clear-StartMenuTiles {
+    Write-Host "[*] Unpinning all Start Menu tiles..."
+    
+    try {
+        # Path to the Start Menu layout file
+        $layoutPath = "$env:LOCALAPPDATA\Microsoft\Windows\Shell\LayoutModification.xml"
+        
+        # Create a minimal layout XML that removes all tiles
+        $emptyLayout = @"
+<LayoutModificationTemplate xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout" xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout" Version="1" xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification">
+  <LayoutOptions StartTileGroupCellWidth="6" />
+  <DefaultLayoutOverride>
+    <StartLayoutCollection>
+      <defaultlayout:StartLayout GroupCellWidth="6" />
+    </StartLayoutCollection>
+  </DefaultLayoutOverride>
+</LayoutModificationTemplate>
+"@
+        
+        # Backup existing layout if it exists
+        if (Test-Path $layoutPath) {
+            $backupPath = "$layoutPath.backup"
+            Copy-Item -Path $layoutPath -Destination $backupPath -Force -ErrorAction SilentlyContinue
+            Write-Host "[*] Backed up existing layout to: $backupPath"
+        }
+        
+        # Write the empty layout
+        $emptyLayout | Out-File -FilePath $layoutPath -Encoding UTF8 -Force
+        Write-Host "[+] Start Menu tiles unpinned" -ForegroundColor Green
+        Write-Host "[!] You may need to restart Explorer or sign out/in for changes to take effect" -ForegroundColor Yellow
+        
+        # Optional: Restart Explorer to apply changes immediately
+        Write-Host "[*] Restarting Windows Explorer to apply changes..."
+        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        Start-Process explorer
+        Write-Host "[+] Windows Explorer restarted" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "[-] Failed to unpin Start Menu tiles: $_" -ForegroundColor Red
+    }
+}
+
 # Main program
 try {
-    Write-Host "[*] Starting nScript v1.0.4"
+    Write-Host "[*] Starting nScript v1.0.5"
     
-    Write-Host "[!] WARNING: Force mode enabled - all files will be removed!" -ForegroundColor Yellow
-    Start-Sleep -Seconds 3
+    if ($Force) {
+        Write-Host "[!] WARNING: Force mode enabled - all files will be removed!" -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+    }
     
     $playbook = $Configuration
     
@@ -332,19 +384,22 @@ try {
             -Directories $playbook.configuration.UserDirectories `
             -OlderThanHours $playbook.configuration.OnlyRemoveOlderThanHours `
             -ExcludedExtensions $playbook.configuration.ExcludedExtensions `
-    
+            -ForceMode $Force
     }
     
     if ($playbook.configuration.BrowserInformation) {
         Remove-BrowserDataIfNotRunning `
             -BrowserInfo $playbook.configuration.BrowserInformation `
-    
+            -ForceMode $Force
     }
-
+    
     # Remove empty directories
     Remove-EmptyDirectories `
         -Directories $playbook.configuration.UserDirectories `
         -ExcludedExtensions $playbook.configuration.ExcludedExtensions
+    
+    # Unpin Start Menu tiles
+    Clear-StartMenuTiles
     
     # Empty the recycle bin
     try {
