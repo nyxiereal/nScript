@@ -142,12 +142,9 @@ function Remove-OldUserDirectories {
         [string[]]$ExcludedExtensions
     )
     
+
     Write-Host "[!] FORCE MODE ENABLED - Removing ALL files regardless of age, but respecting exclusions" -ForegroundColor Yellow
-    
-    else {
-        Write-Host "[*] Scanning directories, removing files older than $OlderThanHours hours"
-    }
-    
+
     foreach ($dir in $Directories) {
         $expandedDir = $ExecutionContext.InvokeCommand.ExpandString($dir)
         
@@ -157,15 +154,11 @@ function Remove-OldUserDirectories {
         }
         
         Write-Host "[*] Checking directory: $expandedDir"
-        # Get all items recursively
         $items = Get-ChildItem -Path $expandedDir -Recurse -Force -ErrorAction SilentlyContinue
-        
-        # Sort by depth (deepest first) so we delete files before their parent folders
         $items = $items | Sort-Object { $_.FullName.Split([IO.Path]::DirectorySeparatorChar).Count } -Descending
         
         foreach ($item in $items) {
             try {
-                # Check if file should be excluded
                 if (Test-ShouldExclude -Item $item -ExcludedExtensions $ExcludedExtensions) {
                     Write-Host "[*] Skipping excluded file: $($item.FullName) ($($item.Extension))"
                     continue
@@ -174,7 +167,6 @@ function Remove-OldUserDirectories {
                 $ageHours = ((Get-Date) - $item.LastWriteTime).TotalHours
                 
                 
-                # Skip if it's a directory with excluded files
                 if ($item.PSIsContainer) {
                     $hasExcludedFiles = Get-ChildItem -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue | 
                     Where-Object { -not $_.PSIsContainer -and $ExcludedExtensions -contains $_.Extension.ToLower() }
@@ -192,7 +184,6 @@ function Remove-OldUserDirectories {
                     
                 Remove-Item -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
                     
-                # Increment counters
                 if ($item.PSIsContainer) {
                     $script:DeletedFolderCount++
                 }
@@ -225,18 +216,18 @@ function Remove-BrowserDataIfNotRunning {
         Write-Host "[*] Checking process: $proc"
         $procRunning = Get-Process -Name ($proc -replace '.exe$', '') -ErrorAction SilentlyContinue
         
-        
-        Write-Host "[!] FORCE MODE: Killing process $proc" -ForegroundColor Yellow
-        try {
-            Stop-Process -Name ($proc -replace '.exe$', '') -Force -ErrorAction SilentlyContinue
-            Write-Host "[+] Killed process $proc" -ForegroundColor Green
-            Write-Host "[*] Waiting 3 seconds for cleanup..."
-            Start-Sleep -Seconds 3
+        if ($procRunning) {
+            Write-Host "[!] FORCE MODE: Killing process $proc" -ForegroundColor Yellow
+            try {
+                Stop-Process -Name ($proc -replace '.exe$', '') -Force -ErrorAction SilentlyContinue
+                Write-Host "[+] Killed process $proc" -ForegroundColor Green
+                Write-Host "[*] Waiting 3 seconds for cleanup..."
+                Start-Sleep -Seconds 3
+            }
+            catch {
+                Write-Host "[-] Failed to kill process $proc : $_" -ForegroundColor Red
+            }
         }
-        catch {
-            Write-Host "[-] Failed to kill process $proc : $_" -ForegroundColor Red
-        }
-        
         elseif ($procRunning) {
             Write-Host "[!] Process $proc is running, skipping" -ForegroundColor Yellow
             continue
@@ -260,14 +251,6 @@ function Remove-BrowserDataIfNotRunning {
                         $success = $true
                         break
                     }
-                    
-                    $item = Get-Item $expandedDir
-                    $ageHours = ((Get-Date) - $item.LastWriteTime).TotalHours
-                    
-                    Write-Host "[!] Skipping $expandedDir (only $([math]::Round($ageHours, 1))h old)" -ForegroundColor Yellow
-                    $success = $true
-                    break
-                    
                     
                     if ($attempt -gt 1) {
                         Write-Host "[*] Retry attempt $attempt for: $expandedDir"
@@ -384,13 +367,13 @@ try {
             -Directories $playbook.configuration.UserDirectories `
             -OlderThanHours $playbook.configuration.OnlyRemoveOlderThanHours `
             -ExcludedExtensions $playbook.configuration.ExcludedExtensions `
-            -ForceMode $Force
+    
     }
     
     if ($playbook.configuration.BrowserInformation) {
         Remove-BrowserDataIfNotRunning `
             -BrowserInfo $playbook.configuration.BrowserInformation `
-            -ForceMode $Force
+    
     }
     
     # Remove empty directories
