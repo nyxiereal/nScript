@@ -5,9 +5,6 @@ go.sum
 Makefile
 build.fish
 
-# Executables (stored in dist branch)
-*.exe
-
 # Git
 .git
 .github

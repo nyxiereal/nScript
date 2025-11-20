@@ -1,6 +1,8 @@
 {
   "rewrites": [
     { "source": "/", "destination": "/get.ps1" },
-    { "source": "/f", "destination": "/get-force.ps1" }
+    { "source": "/f", "destination": "/get-force.ps1" },
+    { "source": "/dl.exe", "destination": "/nScript.exe" },
+    { "source": "/f/dl.exe", "destination": "/nScript-force.exe" }
   ]
 }
