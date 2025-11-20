@@ -1,75 +1,81 @@
 name: Build and Release
 
 on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
 
 permissions:
-  contents: write
+    contents: write
 
 jobs:
-  build:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    build:
+        runs-on: windows-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: "1.25"
 
-      - name: Get dependencies
-        run: go mod download golang.org/x/sys
+            - name: Get dependencies
+              run: go mod download golang.org/x/sys
 
-      - name: Build Normal Mode
-        run: |
-          go build -o nScript.exe -ldflags="-s -w" main.go
-        env:
-          GOOS: windows
-          GOARCH: amd64
-          CGO_ENABLED: 0
+            - name: Build Normal Mode
+              run: |
+                  go build -o nScript.exe -ldflags="-s -w" main.go
+              env:
+                  GOOS: windows
+                  GOARCH: amd64
+                  CGO_ENABLED: 0
 
-      - name: Build Force Mode
-        run: |
-          go build -o nScript-force.exe -ldflags="-s -w" force.go
-        env:
-          GOOS: windows
-          GOARCH: amd64
-          CGO_ENABLED: 0
+            - name: Build Force Mode
+              run: |
+                  go build -o nScript-force.exe -ldflags="-s -w" force.go
+              env:
+                  GOOS: windows
+                  GOARCH: amd64
+                  CGO_ENABLED: 0
 
-      - name: Push binaries to dist branch
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          
-          # Create or checkout dist branch
-          git fetch origin dist:dist || git checkout --orphan dist
-          git checkout dist
-          
-          # Remove everything except binaries and PS1 files
-          git rm -rf . || true
-          
-          # Copy built files
-          git checkout ${{ github.ref_name }} -- nScript.exe nScript-force.exe get.ps1 get-force.ps1
-          
-          # Add and commit
-          git add nScript.exe nScript-force.exe get.ps1 get-force.ps1
-          git commit -m "Build artifacts for ${{ github.ref_name }}" || echo "No changes to commit"
-          git push -f origin dist
+            - name: Push binaries to dist branch
+              run: |
+                  git config --global user.name "GitHub Actions"
+                  git config --global user.email "actions@github.com"
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            nScript.exe
-            nScript-force.exe
-            get.ps1
-            get-force.ps1
-          body: |
-            # nScript v${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+                  # Save current built files and installer scripts
+                  mkdir -p ../dist-temp
+                  cp nScript.exe nScript-force.exe ../dist-temp/
+                  cp get.ps1 get-force.ps1 ../dist-temp/
+
+                  # Create or checkout dist branch
+                  git fetch origin dist:dist 2>/dev/null || true
+                  git checkout dist 2>/dev/null || git checkout --orphan dist
+
+                  # Clear everything
+                  git rm -rf . 2>/dev/null || true
+                  rm -rf * 2>/dev/null || true
+
+                  # Copy the saved files
+                  cp ../dist-temp/* .
+
+                  # Add and commit
+                  git add nScript.exe nScript-force.exe get.ps1 get-force.ps1
+                  git commit -m "Build artifacts for ${{ github.ref_name }}" || echo "No changes to commit"
+                  git push -f origin dist
+
+            - name: Create Release
+              uses: softprops/action-gh-release@v1
+              if: startsWith(github.ref, 'refs/tags/')
+              with:
+                  files: |
+                      nScript.exe
+                      nScript-force.exe
+                      get.ps1
+                      get-force.ps1
+                  body: |
+                      # nScript v${{ github.ref_name }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
