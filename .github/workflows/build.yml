@@ -64,7 +64,7 @@ jobs:
                   Copy-Item ..\dist-temp\* -Destination . -Force
 
                   # Add and commit
-                  git add -f nScript.exe nScript-force.exe get.ps1 get-force.ps1
+                  git add -f nScript.exe nScript-force.exe get.ps1 get-force.ps1 vercel.json
                   git commit -m "Build artifacts for ${{ github.ref_name }}"
                   if ($LASTEXITCODE -eq 0) {
                       git push -f origin dist
