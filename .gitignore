@@ -5,3 +5,35 @@ System Volume Information
 .vercel
 a
 deploy.ps1
+
+# Go binaries
+*.exe
+nScript
+nScript-force
+
+# Go build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.test
+*.out
+
+# Go modules
+go.sum
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Build directories
+build/
+dist/
+bin/

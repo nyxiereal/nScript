@@ -1,0 +1,22 @@
+# Source code
+*.go
+go.mod
+go.sum
+Makefile
+build.fish
+
+# Executables (stored in dist branch)
+*.exe
+
+# Git
+.git
+.github
+.gitignore
+
+# System files
+System Volume Information
+
+# Other
+deploy.log
+deploy.ps1
+a

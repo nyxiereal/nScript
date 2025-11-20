@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/main.ps1" },
-    { "source": "/f", "destination": "/force.ps1" }
+    { "source": "/", "destination": "/get.ps1" },
+    { "source": "/f", "destination": "/get-force.ps1" }
   ]
 }
