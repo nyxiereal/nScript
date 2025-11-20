@@ -71,17 +71,3 @@ jobs:
                   } else {
                       Write-Host "No changes to commit"
                   }
-
-            - name: Create Release
-              uses: softprops/action-gh-release@v1
-              if: startsWith(github.ref, 'refs/tags/')
-              with:
-                  files: |
-                      nScript.exe
-                      nScript-force.exe
-                      get.ps1
-                      get-force.ps1
-                  body: |
-                      # nScript v${{ github.ref_name }}
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
