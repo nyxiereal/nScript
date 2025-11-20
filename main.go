@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -499,44 +497,6 @@ func enableDarkMode() {
 	key.SetDWordValue("ForceDarkMode", 1)
 }
 
-func setWallpaperFromURL(url string) {
-	userHome := os.Getenv("USERPROFILE")
-	wallpaperDir := filepath.Join(userHome, "Pictures")
-	os.MkdirAll(wallpaperDir, 0755)
-
-	wallpaperPath := filepath.Join(wallpaperDir, "tapeta.png")
-
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Printf("[-] Failed to download wallpaper: %v\n", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	out, err := os.Create(wallpaperPath)
-	if err != nil {
-		fmt.Printf("[-] Failed to create wallpaper file: %v\n", err)
-		return
-	}
-	defer out.Close()
-
-	io.Copy(out, resp.Body)
-
-	// Set wallpaper using SystemParametersInfo
-	user32 := syscall.NewLazyDLL("user32.dll")
-	systemParametersInfo := user32.NewProc("SystemParametersInfoW")
-
-	wallpaperPathUTF16, _ := syscall.UTF16PtrFromString(wallpaperPath)
-	systemParametersInfo.Call(
-		uintptr(20), // SPI_SETDESKWALLPAPER
-		uintptr(0),
-		uintptr(unsafe.Pointer(wallpaperPathUTF16)),
-		uintptr(3), // SPIF_UPDATEINIFILE | SPIF_SENDCHANGE
-	)
-
-	fmt.Printf("[+] Wallpaper set to %s\n", wallpaperPath)
-}
-
 func clearRecycleBin() {
 	shell32 := syscall.NewLazyDLL("shell32.dll")
 	emptyRecycleBin := shell32.NewProc("SHEmptyRecycleBinW")
@@ -606,7 +566,6 @@ func main() {
 	clearStartMenuTiles()
 	clearQuickAccessRecent()
 	enableDarkMode()
-	setWallpaperFromURL("https://proxy.meowery.eu/tapeta.png")
 
 	// Final cleanup
 	clearRecycleBin()
