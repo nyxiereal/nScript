@@ -47,7 +47,7 @@ jobs:
 
                   # Save current built files and installer scripts
                   New-Item -ItemType Directory -Path ..\dist-temp -Force | Out-Null
-                  Copy-Item nScript.exe, nScript-force.exe, get.ps1, get-force.ps1 -Destination ..\dist-temp\
+                  Copy-Item nScript.exe, nScript-force.exe, get.ps1, get-force.ps1, vercel.json -Destination ..\dist-temp\
 
                   # Create or checkout dist branch
                   git fetch origin dist:dist 2>$null
