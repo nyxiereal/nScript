@@ -30,7 +30,15 @@ $Configuration = @{
             "$UserHome\AppData\Local\Microsoft\Windows\Clipboard",
             "$UserHome\.cache",
             "$UserHome\AppData\Local\Roblox",
-            "$UserHome\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Roblox"
+            "$UserHome\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Roblox",
+            "$UserHome\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc",
+            "$UserHome\AppData\Local\Discord",
+            "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Epic Games Launcher.lnk",
+            "$env:ProgramFiles(x86)\Epic Games",
+            "$UserHome\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\osu!.lnk",
+            "$UserHome\AppData\Local\osu!",
+            "$UserHome\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Paradox Interactive",
+            "$UserHome\AppData\Local\Programs\Paradox Interactive"
         )
         BrowserInformation       = @{
             "firefox.exe" = @(
@@ -46,7 +54,9 @@ $Configuration = @{
             )
             "opera.exe"   = @(
                 "$UserHome\AppData\Roaming\Opera Software",
-                "$UserHome\AppData\Local\Opera Software"
+                "$UserHome\AppData\Local\Opera Software",
+                "$UserHome\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Przeglądarka Opera GX.lnk",
+                "$UserHome\AppData\Local\Programs\Opera GX"
             )
         }
         # Extensions to exclude from deletion
@@ -122,10 +132,14 @@ function Test-ShouldExclude {
     if (-not $Item.PSIsContainer) {
         $extension = $Item.Extension.ToLower()
         if ($ExcludedExtensions -contains $extension) {
-            # Allow deletion if filename contains "roblox" (case-insensitive)
-            if ($Item.Name -match "roblox") {
-                Write-Host "[*] Allowing deletion of excluded extension with 'roblox' in name: $($Item.FullName)" -ForegroundColor Cyan
-                return $false
+            # Allow deletion if filename contains one of these keywords (case-insensitive)
+            $allowKeywords = @("roblox", "paradox", "opera", "discord", "osu", "steam", "epic games")
+            $lowerName = $Item.Name.ToLower()
+            foreach ($kw in $allowKeywords) {
+                if ($lowerName -like "*$kw*") {
+                    Write-Host "[*] Allowing deletion of excluded extension with '$kw' in name: $($Item.FullName)" -ForegroundColor Cyan
+                    return $false
+                }
             }
             return $true
         }
@@ -507,7 +521,7 @@ public class NativeMethods {
 
 # Main program
 try {
-    Write-Host "[*] Starting nScript v1.0.6"
+    Write-Host "[*] Starting nScript v1.0.7"
     
     if ($Force) {
         Write-Host "[!] WARNING: Force mode enabled - all files will be removed!" -ForegroundColor Yellow
