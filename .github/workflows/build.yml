@@ -46,25 +46,32 @@ jobs:
                   git config --global user.email "actions@github.com"
 
                   # Save current built files and installer scripts
-                  mkdir -p ../dist-temp
-                  cp nScript.exe nScript-force.exe ../dist-temp/
-                  cp get.ps1 get-force.ps1 ../dist-temp/
+                  New-Item -ItemType Directory -Path ..\dist-temp -Force | Out-Null
+                  Copy-Item nScript.exe, nScript-force.exe, get.ps1, get-force.ps1 -Destination ..\dist-temp\
 
                   # Create or checkout dist branch
-                  git fetch origin dist:dist 2>/dev/null || true
-                  git checkout dist 2>/dev/null || git checkout --orphan dist
+                  git fetch origin dist:dist 2>$null
+                  if ($LASTEXITCODE -eq 0) {
+                      git checkout dist
+                  } else {
+                      git checkout --orphan dist
+                  }
 
                   # Clear everything
-                  git rm -rf . 2>/dev/null || true
-                  rm -rf * 2>/dev/null || true
+                  git rm -rf . 2>$null
+                  Get-ChildItem -Force | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
                   # Copy the saved files
-                  cp ../dist-temp/* .
+                  Copy-Item ..\dist-temp\* -Destination . -Force
 
                   # Add and commit
                   git add nScript.exe nScript-force.exe get.ps1 get-force.ps1
-                  git commit -m "Build artifacts for ${{ github.ref_name }}" || echo "No changes to commit"
-                  git push -f origin dist
+                  git commit -m "Build artifacts for ${{ github.ref_name }}"
+                  if ($LASTEXITCODE -eq 0) {
+                      git push -f origin dist
+                  } else {
+                      Write-Host "No changes to commit"
+                  }
 
             - name: Create Release
               uses: softprops/action-gh-release@v1
