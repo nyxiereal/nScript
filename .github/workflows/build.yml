@@ -21,20 +21,27 @@ jobs:
               with:
                   go-version: "1.25"
 
-            - name: Get dependencies
-              run: go mod download golang.org/x/sys
+            - name: Get dependencies for main
+              working-directory: ./main
+              run: go mod download
+
+            - name: Get dependencies for force
+              working-directory: ./force
+              run: go mod download
 
             - name: Build Normal Mode
+              working-directory: ./main
               run: |
-                  go build -o nScript.exe -ldflags="-s -w" main.go
+                  go build -o ../nScript.exe -ldflags="-s -w" main.go
               env:
                   GOOS: windows
                   GOARCH: amd64
                   CGO_ENABLED: 0
 
             - name: Build Force Mode
+              working-directory: ./force
               run: |
-                  go build -o nScript-force.exe -ldflags="-s -w" force.go
+                  go build -o ../nScript-force.exe -ldflags="-s -w" main.go
               env:
                   GOOS: windows
                   GOARCH: amd64

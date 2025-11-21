@@ -143,7 +143,7 @@ func startProgressCounter(label string) func() {
 				folders := deletedFolderCount.Load()
 				skipped := skippedFileCount.Load()
 				failed := failedFileCount.Load()
-				fmt.Printf("\r[*] %s | Files: %d | Folders: %d | Skipped: %d | Failed: %d",
+				fmt.Printf("\r[*] %s | Files: %d | Folders: %d | Skipped: %d | Failed: %d\n",
 					label, files, folders, skipped, failed)
 			case <-done:
 				return
@@ -549,7 +549,6 @@ func main() {
 
 	fmt.Printf("[*] Starting nScript v%s (Go Edition - FORCE MODE)\n", Version)
 	fmt.Println("[!] WARNING: Force mode enabled - all files will be removed!")
-	time.Sleep(3 * time.Second)
 
 	config := getConfig()
 
