@@ -23,11 +23,11 @@ jobs:
 
             - name: Get dependencies for main
               working-directory: ./main
-              run: go mod download
+              run: go mod download golang.org/x/sys
 
             - name: Get dependencies for force
               working-directory: ./force
-              run: go mod download
+              run: go mod download golang.org/x/sys
 
             - name: Build Normal Mode
               working-directory: ./main
