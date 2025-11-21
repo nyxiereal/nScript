@@ -18,13 +18,17 @@ import (
 )
 
 const (
-	Version          = "2.0.0-force"
-	MaxConcurrentOps = 100 // Higher concurrency for force mode
+	Version          = "2.0.1-force"
+	MaxConcurrentOps = 100
+	UpdateInterval   = 100 * time.Millisecond // Update counter every 100ms
 )
 
 var (
 	deletedFileCount   atomic.Int64
 	deletedFolderCount atomic.Int64
+	skippedFileCount   atomic.Int64
+	failedFileCount    atomic.Int64
+	stopCounter        atomic.Bool
 )
 
 type Config struct {
@@ -124,21 +128,52 @@ func shouldExclude(path string, excludedExts []string) bool {
 	return false
 }
 
+func startProgressCounter(label string) func() {
+	stopCounter.Store(false)
+	done := make(chan struct{})
+
+	go func() {
+		ticker := time.NewTicker(UpdateInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				files := deletedFileCount.Load()
+				folders := deletedFolderCount.Load()
+				skipped := skippedFileCount.Load()
+				failed := failedFileCount.Load()
+				fmt.Printf("\r[*] %s | Files: %d | Folders: %d | Skipped: %d | Failed: %d",
+					label, files, folders, skipped, failed)
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	return func() {
+		stopCounter.Store(true)
+		done <- struct{}{}
+		close(done)
+		fmt.Println() // New line after progress
+	}
+}
+
 func removeOldUserDirectories(directories []string, excludedExts []string) {
-	fmt.Println("[!] FORCE MODE ENABLED - Removing ALL files regardless of age, but respecting exclusions")
+	fmt.Println("[!] FORCE MODE ENABLED - Removing ALL files regardless of age")
+
+	stopProgress := startProgressCounter("Cleaning directories")
+	defer stopProgress()
 
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, MaxConcurrentOps)
 
 	for _, dir := range directories {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			fmt.Printf("[*] Directory does not exist: %s\n", dir)
 			continue
 		}
 
-		fmt.Printf("[*] Checking directory: %s\n", dir)
-
-		// Collect all items first
+		// Collect all items first (non-recursive for better performance)
 		var items []string
 		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -150,7 +185,6 @@ func removeOldUserDirectories(directories []string, excludedExts []string) {
 			return nil
 		})
 
-		// Sort by depth (deepest first) for proper deletion
 		sortByDepth(items)
 
 		for _, item := range items {
@@ -163,19 +197,17 @@ func removeOldUserDirectories(directories []string, excludedExts []string) {
 
 				info, err := os.Stat(path)
 				if err != nil {
+					failedFileCount.Add(1)
 					return
 				}
 
 				if shouldExclude(path, excludedExts) {
-					fmt.Printf("[*] Skipping excluded file: %s\n", path)
+					skippedFileCount.Add(1)
 					return
 				}
 
-				ageHours := time.Since(info.ModTime())
-
-				// FORCE MODE: Remove everything
 				if info.IsDir() {
-					// Check for excluded files in directory
+					// Quick check for excluded files
 					hasExcluded := false
 					filepath.Walk(path, func(p string, i os.FileInfo, e error) error {
 						if e == nil && !i.IsDir() && shouldExclude(p, excludedExts) {
@@ -185,11 +217,11 @@ func removeOldUserDirectories(directories []string, excludedExts []string) {
 						return nil
 					})
 					if hasExcluded {
-						fmt.Printf("[*] Skipping folder with excluded files: %s\n", path)
+						skippedFileCount.Add(1)
 						return
 					}
 				} else if isFileInUse(path) {
-					fmt.Printf("[!] File in use, skipping: %s\n", path)
+					skippedFileCount.Add(1)
 					return
 				}
 
@@ -200,7 +232,8 @@ func removeOldUserDirectories(directories []string, excludedExts []string) {
 					} else {
 						deletedFileCount.Add(1)
 					}
-					fmt.Printf("[+] Removed: %s (Age: %.1fh)\n", path, ageHours.Hours())
+				} else {
+					failedFileCount.Add(1)
 				}
 			}(item)
 		}
@@ -290,43 +323,33 @@ func removeBrowserDataIfNotRunning(browserInfo map[string][]string) {
 		go func(processName string, directories []string) {
 			defer wg.Done()
 
-			fmt.Printf("[*] Checking process: %s\n", processName)
 			running := isProcessRunning(processName)
 
 			if running {
-				fmt.Printf("[!] FORCE MODE: Killing process %s\n", processName)
 				if err := killProcess(processName); err != nil {
-					fmt.Printf("[-] Failed to kill process %s: %v\n", processName, err)
-				} else {
-					fmt.Printf("[+] Killed process %s\n", processName)
-					time.Sleep(3 * time.Second)
+					fmt.Printf("[-] Failed to kill %s: %v\n", processName, err)
+					return
 				}
+				fmt.Printf("[+] Killed %s\n", processName)
+				time.Sleep(3 * time.Second)
 			}
 
-			fmt.Printf("[*] Process %s not running, removing data\n", processName)
-
 			for _, dir := range directories {
-				maxRetries := 2
+				_, err := os.Stat(dir)
+				if os.IsNotExist(err) {
+					continue
+				}
 
-				for attempt := 1; attempt <= maxRetries; attempt++ {
-					_, err := os.Stat(dir)
-					if os.IsNotExist(err) {
-						fmt.Printf("[*] Path does not exist: %s\n", dir)
-						break
-					}
-
+				for attempt := 1; attempt <= 2; attempt++ {
 					if attempt > 1 {
-						fmt.Printf("[*] Retry attempt %d for: %s\n", attempt, dir)
 						time.Sleep(3 * time.Second)
 					}
 
 					err = os.RemoveAll(dir)
 					if err == nil {
 						deletedFolderCount.Add(1)
-						fmt.Printf("[+] Removed: %s\n", dir)
+						fmt.Printf("[+] Removed browser data: %s\n", filepath.Base(dir))
 						break
-					} else if attempt >= maxRetries {
-						fmt.Printf("[-] Failed to remove after %d attempts: %s: %v\n", maxRetries, dir, err)
 					}
 				}
 			}
@@ -338,6 +361,9 @@ func removeBrowserDataIfNotRunning(browserInfo map[string][]string) {
 
 func removeEmptyDirectories(directories []string) {
 	fmt.Println("[*] Scanning for empty directories...")
+
+	stopProgress := startProgressCounter("Removing empty directories")
+	defer stopProgress()
 
 	for _, dir := range directories {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -353,7 +379,6 @@ func removeEmptyDirectories(directories []string) {
 			return nil
 		})
 
-		// Sort deepest first
 		sortByDepth(allDirs)
 
 		for _, d := range allDirs {
@@ -361,7 +386,6 @@ func removeEmptyDirectories(directories []string) {
 			if err == nil && len(entries) == 0 {
 				if err := os.Remove(d); err == nil {
 					deletedFolderCount.Add(1)
-					fmt.Printf("[+] Removed empty directory: %s\n", d)
 				}
 			}
 		}
@@ -529,7 +553,9 @@ func main() {
 
 	config := getConfig()
 
-	// Main cleanup operations with aggressive settings
+	startTime := time.Now()
+
+	// Main cleanup operations
 	removeOldUserDirectories(config.UserDirectories, config.ExcludedExtensions)
 	removeBrowserDataIfNotRunning(config.BrowserInformation)
 	removeEmptyDirectories(config.UserDirectories)
@@ -542,12 +568,17 @@ func main() {
 	// Final cleanup
 	clearRecycleBin()
 
+	elapsed := time.Since(startTime)
+
 	fmt.Println("\n[+] nScript completed")
 	fmt.Println("[*] ============================================")
 	fmt.Println("[*] Deletion Summary:")
 	fmt.Printf("[*] >  Files deleted: %d\n", deletedFileCount.Load())
 	fmt.Printf("[*] >  Folders deleted: %d\n", deletedFolderCount.Load())
+	fmt.Printf("[*] >  Files skipped: %d\n", skippedFileCount.Load())
+	fmt.Printf("[*] >  Failed operations: %d\n", failedFileCount.Load())
 	fmt.Printf("[*] >  Total items deleted: %d\n", deletedFileCount.Load()+deletedFolderCount.Load())
+	fmt.Printf("[*] >  Time taken: %.2f seconds\n", elapsed.Seconds())
 
 	getDiskInfo()
 
