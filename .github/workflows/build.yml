@@ -1,9 +1,6 @@
 name: Build and Release
 
 on:
-    push:
-        tags:
-            - "v*"
     workflow_dispatch:
 
 permissions:
@@ -11,7 +8,7 @@ permissions:
 
 jobs:
     build:
-        runs-on: windows-latest
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -21,60 +18,50 @@ jobs:
               with:
                   go-version: "1.25"
 
-            - name: Get dependencies for main
-              working-directory: ./main
-              run: go mod download golang.org/x/sys
+            - name: Download deps
+              run: go mod download
 
-            - name: Get dependencies for force
-              working-directory: ./force
-              run: go mod download golang.org/x/sys
-
-            - name: Build Normal Mode
-              working-directory: ./main
+            - name: Build Windows binaries
               run: |
-                  go build -o ../nScript.exe -ldflags="-s -w" main.go
-              env:
-                  GOOS: windows
-                  GOARCH: amd64
-                  CGO_ENABLED: 0
+                  export BINARY_NAME=nScript.exe
+                  env GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
+                    go build -trimpath -ldflags="-s -w" -o $BINARY_NAME main.go
 
-            - name: Build Force Mode
-              working-directory: ./force
+            - name: Install UPX
               run: |
-                  go build -o ../nScript-force.exe -ldflags="-s -w" main.go
-              env:
-                  GOOS: windows
-                  GOARCH: amd64
-                  CGO_ENABLED: 0
+                  sudo apt-get update
+                  sudo apt-get install -y upx || echo "UPX not available"
+
+            - name: Compress binary with UPX
+              run: |
+                  if [ -f nScript.exe ]; then upx --best --lzma nScript.exe; fi
+
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: nScript-windows-amd64
+                  path: nScript.exe
 
             - name: Push binaries to dist branch
               run: |
-                  git config --global user.name "GitHub Actions"
-                  git config --global user.email "actions@github.com"
+                  git config user.name "GitHub Actions"
+                  git config user.email "actions@github.com"
 
-                  # Save current built files and installer scripts
-                  New-Item -ItemType Directory -Path ..\dist-temp -Force | Out-Null
-                  Copy-Item nScript.exe, nScript-force.exe, get.ps1, get-force.ps1, vercel.json -Destination ..\dist-temp\
+                  # Prepare a temporary folder
+                  mkdir -p ../dist-temp
+                  cp nScript.exe get.ps1 get-force.ps1 vercel.json ../dist-temp/ || true
 
-                  # Create or checkout dist branch
-                  git fetch origin dist:dist 2>$null
-                  if ($LASTEXITCODE -eq 0) {
-                      git checkout dist
-                  } else {
-                      git checkout --orphan dist
-                  }
+                  # Create a new orphan dist branch or checkout if it exists on origin
+                  git fetch origin dist:dist || true
+                  if git show-ref --verify --quiet refs/heads/dist; then
+                    git checkout dist
+                    git rm -rf . || true
+                  else
+                    git checkout --orphan dist
+                    git rm -rf . || true
+                  fi
 
-                  # Clear everything except .git
-                  Get-ChildItem -Force -Exclude .git | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-
-                  # Copy the saved files
-                  Copy-Item ..\dist-temp\* -Destination . -Force
-
-                  # Add and commit
-                  git add -f nScript.exe nScript-force.exe get.ps1 get-force.ps1 vercel.json
-                  git commit -m "Build artifacts for ${{ github.ref_name }}"
-                  if ($LASTEXITCODE -eq 0) {
-                      git push -f origin dist
-                  } else {
-                      Write-Host "No changes to commit"
-                  }
+                  cp -r ../dist-temp/* .
+                  git add -f nScript.exe get.ps1 get-force.ps1 vercel.json || true
+                  git commit -m "Build artifacts for $GITHUB_REF_NAME" || echo "No changes to commit"
+                  git push -f origin dist || echo "Push failed"
