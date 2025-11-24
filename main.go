@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	Version             = "2.0.2"
+	Version             = "2.0.3"
 	OnlyRemoveOlderThan = 24 * time.Hour
-	MaxConcurrentOps    = 100
-	UpdateInterval      = 100 * time.Millisecond
+	MaxConcurrentOps    = 500
+	UpdateInterval      = 50 * time.Millisecond
 )
 
 var (
@@ -143,7 +143,7 @@ func startProgressCounter(label string) func() {
 				folders := deletedFolderCount.Load()
 				skipped := skippedFileCount.Load()
 				failed := failedFileCount.Load()
-				fmt.Printf("\r[*] %s | Files: %d | Folders: %d | Skipped: %d | Failed: %d\n",
+				fmt.Printf("\r[*] %s | Files: %d | Folders: %d | Skipped: %d | Failed: %d",
 					label, files, folders, skipped, failed)
 			case <-done:
 				return
@@ -325,6 +325,7 @@ func removeBrowserDataIfNotRunning(browserInfo map[string][]string, forceMode bo
 	fmt.Println("[*] Checking browser data...")
 
 	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, MaxConcurrentOps)
 
 	for proc, dirs := range browserInfo {
 		wg.Add(1)
@@ -339,36 +340,45 @@ func removeBrowserDataIfNotRunning(browserInfo map[string][]string, forceMode bo
 					return
 				}
 				fmt.Printf("[+] Killed %s\n", processName)
-				time.Sleep(3 * time.Second)
+				time.Sleep(1 * time.Second)
 			} else if running {
 				return
 			}
 
+			var dirWg sync.WaitGroup
 			for _, dir := range directories {
-				maxRetries := 1
-				if forceMode {
-					maxRetries = 2
-				}
+				dirWg.Add(1)
+				semaphore <- struct{}{}
+				go func(d string) {
+					defer dirWg.Done()
+					defer func() { <-semaphore }()
 
-				for attempt := 1; attempt <= maxRetries; attempt++ {
-					_, err := os.Stat(dir)
-					if os.IsNotExist(err) {
-						break
+					maxRetries := 1
+					if forceMode {
+						maxRetries = 2
 					}
 
-					if attempt > 1 {
-						time.Sleep(2 * time.Second)
-					}
+					for attempt := 1; attempt <= maxRetries; attempt++ {
+						_, err := os.Stat(d)
+						if os.IsNotExist(err) {
+							break
+						}
 
-					err = os.RemoveAll(dir)
-					if err == nil {
-						fmt.Printf("[+] Removed %s data\n", processName)
-						break
-					} else if attempt == maxRetries {
-						fmt.Printf("[-] Failed to remove %s: %v\n", dir, err)
+						if attempt > 1 {
+							time.Sleep(1 * time.Second)
+						}
+
+						err = os.RemoveAll(d)
+						if err == nil {
+							fmt.Printf("[+] Removed %s data\n", processName)
+							break
+						} else if attempt == maxRetries {
+							fmt.Printf("[-] Failed to remove %s: %v\n", d, err)
+						}
 					}
-				}
+				}(dir)
 			}
+			dirWg.Wait()
 		}(proc, dirs)
 	}
 
@@ -380,6 +390,9 @@ func removeEmptyDirectories(directories []string) {
 
 	stopProgress := startProgressCounter("Removing empty directories")
 	defer stopProgress()
+
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, MaxConcurrentOps)
 
 	for _, dir := range directories {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -398,13 +411,22 @@ func removeEmptyDirectories(directories []string) {
 		sortByDepth(allDirs)
 
 		for _, d := range allDirs {
-			entries, err := os.ReadDir(d)
-			if err == nil && len(entries) == 0 {
-				os.Remove(d)
-				deletedFolderCount.Add(1)
-			}
+			wg.Add(1)
+			semaphore <- struct{}{}
+			go func(dirPath string) {
+				defer wg.Done()
+				defer func() { <-semaphore }()
+
+				entries, err := os.ReadDir(dirPath)
+				if err == nil && len(entries) == 0 {
+					os.Remove(dirPath)
+					deletedFolderCount.Add(1)
+				}
+			}(d)
 		}
 	}
+
+	wg.Wait()
 }
 
 func getWindowsVersion() (major, minor, build uint32) {
@@ -798,4 +820,6 @@ func main() {
 	fmt.Println("[*] ============================================")
 	fmt.Println("[*] Made by Nyx :3 https://nyx.meowery.eu/")
 	fmt.Println("[*] ============================================")
+	fmt.Println("\n[*] Press Enter to exit...")
+	fmt.Scanln()
 }
