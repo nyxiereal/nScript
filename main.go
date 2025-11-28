@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	Version             = "2.0.3"
+	Version             = "2.0.4"
 	OnlyRemoveOlderThan = 24 * time.Hour
 	MaxConcurrentOps    = 500
 	UpdateInterval      = 50 * time.Millisecond
@@ -73,6 +73,11 @@ func getConfig() *Config {
 			filepath.Join(userHome, "AppData", "Local", "osu!"),
 			filepath.Join(userHome, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Paradox Interactive"),
 			filepath.Join(userHome, "AppData", "Local", "Programs", "Paradox Interactive"),
+			filepath.Join(userHome, "MicrosoftEdgeBackups"),
+			filepath.Join(userHome, "AppData", "Roaming", "Godot"),
+			filepath.Join("C:", "Steam"),
+			filepath.Join("C:", "Program Files", "Epic Games"),
+			filepath.Join("C:", "ProgramData", "Riot Games"),
 		},
 		BrowserInformation: map[string][]string{
 			"firefox.exe": {
@@ -91,6 +96,9 @@ func getConfig() *Config {
 				filepath.Join(userHome, "AppData", "Local", "Opera Software"),
 				filepath.Join(userHome, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Przeglądarka Opera GX.lnk"),
 				filepath.Join(userHome, "AppData", "Local", "Programs", "Opera GX"),
+			},
+			"onedrive.exe": {
+				filepath.Join(userHome, "AppData", "Local", "Microsoft", "OneDrive"),
 			},
 		},
 		ExcludedExtensions: []string{
