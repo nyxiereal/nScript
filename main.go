@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	Version             = "2.0.4"
+	Version             = "2.0.5"
 	OnlyRemoveOlderThan = 24 * time.Hour
 	MaxConcurrentOps    = 500
 	UpdateInterval      = 50 * time.Millisecond
@@ -828,6 +828,10 @@ func main() {
 	fmt.Println("[*] ============================================")
 	fmt.Println("[*] Made by Nyx :3 https://nyx.meowery.eu/")
 	fmt.Println("[*] ============================================")
-	fmt.Println("\n[*] Press Enter to exit...")
-	fmt.Scanln()
+	fmt.Print("[*] Closing in 3s...")
+	time.Sleep(1 * time.Second)
+	fmt.Print("[*] Closing in 2s...")
+	time.Sleep(1 * time.Second)
+	fmt.Print("[*] Closing in 1s...")
+	time.Sleep(1 * time.Second)
 }
