@@ -972,8 +972,8 @@ func main() {
 	fmt.Println("[*] ============================================")
 	fmt.Print("[*] Closing in 3s...")
 	time.Sleep(1 * time.Second)
-	fmt.Print("[*] Closing in 2s...")
+	fmt.Print(" 2s...")
 	time.Sleep(1 * time.Second)
-	fmt.Print("[*] Closing in 1s...")
+	fmt.Print(" 1s...")
 	time.Sleep(1 * time.Second)
 }
