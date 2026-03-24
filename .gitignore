@@ -1,39 +1,81 @@
-System Volume Information
-*.log
-*.tmp
-*.old
-.vercel
-a
-deploy.ps1
-
-# Go binaries
+# Binaries for programs and plugins
 *.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 nScript
 nScript-force
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# Build artifacts
+/dist/
+/build/
+/bin/
+*.zip
+*.tar.gz
+*.tar.bz2
 
 # Go build artifacts
 *.o
 *.a
-*.so
-*.dylib
-*.test
-*.out
 
-# Go modules
-go.sum
+# Checksum files  
+*.sha256
+*.md5
+*.sig
 
-# IDE specific files
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS specific
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Build directories
-build/
-dist/
-bin/
+# Windows
+$RECYCLE.BIN/
+Desktop.ini
+System Volume Information/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.old
+
+# UPX compressed backup files
+*.upx.bak
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Deployment
+.vercel
+deploy.ps1
+a
+
+# Security scan results
+*.sarif
+
+# Go modules (keep go.sum for integrity verification)
+# go.sum - removed from gitignore as it should be committed
