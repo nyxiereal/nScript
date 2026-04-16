@@ -63,22 +63,6 @@ func (pt *ProgressTracker) StartProgress(label string) func() {
 	}
 }
 
-// ConfirmationPrompt displays a confirmation prompt for destructive operations
-func ConfirmationPrompt(message string) bool {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Printf("[?] %s\n", message)
-	fmt.Print("This operation cannot be undone. Type 'yes' to confirm: ")
-
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return false
-	}
-
-	response = strings.TrimSpace(strings.ToLower(response))
-	return response == "yes"
-}
-
 // PrintHeader displays the application header
 func PrintHeader(version string, forceMode bool) {
 	versionStr := version

@@ -107,13 +107,7 @@ func (pm *ProcessManager) KillProcess(name string, forceMode bool) error {
 	for _, proc := range processes {
 		if strings.ToLower(proc.Name) == name {
 			if !forceMode {
-				fmt.Printf("[?] Kill process %s (PID: %d)? This operation cannot be undone.\n", proc.Name, proc.PID)
-				fmt.Print("Type 'yes' to confirm: ")
-				var response string
-				fmt.Scanln(&response)
-				if strings.ToLower(response) != "yes" {
-					continue
-				}
+				fmt.Printf("[+] Killing process %s (PID: %d)\n", proc.Name, proc.PID)
 			}
 
 			handle, err := windows.OpenProcess(windows.PROCESS_TERMINATE, false, proc.PID)

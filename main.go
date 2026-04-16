@@ -30,10 +30,8 @@ func main() {
 
 	// Confirm destructive operations in force mode
 	if forceMode {
-		if !ui.ConfirmationPrompt("Force mode will delete ALL files regardless of age. Continue?") {
-			fmt.Println("[*] Operation cancelled by user")
-			return
-		}
+		fmt.Println("[!] Force mode enabled - all files will be removed!")
+		time.Sleep(3 * time.Second)
 	}
 
 	// Initialize components
