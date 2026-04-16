@@ -1,10 +1,7 @@
 package ui
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 
