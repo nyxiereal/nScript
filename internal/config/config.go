@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	Version             = "2.0.7"
+	Version             = "2.0.8"
 	OnlyRemoveOlderThan = 24 * time.Hour
 	MaxConcurrentOps    = 500
 	UpdateInterval      = 50 * time.Millisecond
@@ -30,9 +30,8 @@ func GetConfig() *Config {
 		UserDirectories:    buildUserDirectories(userHome, programData, programFilesX86),
 		BrowserInformation: buildBrowserInfo(userHome),
 		ExcludedExtensions: []string{
-			".iso", ".vdi", ".sav", ".vbox", ".vbox-prev",
-			".vmdk", ".vhd", ".hdd", ".nvram", ".ova",
-			".ovf", ".vbox-extpack", ".vhdx", ".qcow2", ".img", ".lnk",
+			".iso", ".lnk",
+			// ".vdi", ".sav", ".vbox", ".vbox-prev", ".ovf", ".vbox-extpack", ".vhdx", ".qcow2", ".img", ".vmdk", ".vhd", ".hdd", ".nvram", ".ova",
 		},
 	}
 }
