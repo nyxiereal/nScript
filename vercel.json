@@ -12,10 +12,6 @@
     {
       "source": "/nScript.exe",
       "destination": "/nScript.exe"
-    },
-    {
-      "source": "/nScript-force.exe",
-      "destination": "/nScript-force.exe"
     }
   ]
 }

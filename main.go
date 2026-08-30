@@ -23,16 +23,13 @@ func main() {
 	forceMode := parseArguments()
 
 	// Initialize configuration
-	cfg := config.GetConfig()
+	cfg, err := config.GetConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Display header and warnings
 	ui.PrintHeader(config.Version, forceMode)
-
-	// Confirm destructive operations in force mode
-	if forceMode {
-		fmt.Println("[!] Force mode enabled - all files will be removed!")
-		time.Sleep(3 * time.Second)
-	}
 
 	// Initialize components
 	cleaner := cleanup.NewCleaner()
@@ -46,7 +43,7 @@ func main() {
 	fmt.Println("\n[*] Phase 1: File and directory cleanup")
 	stopProgress := progressTracker.StartProgress("Cleaning directories")
 
-	err := cleaner.StreamingCleanDirectories(
+	err = cleaner.StreamingCleanDirectories(
 		cfg.UserDirectories,
 		config.OnlyRemoveOlderThan,
 		cfg.ExcludedExtensions,
@@ -65,19 +62,8 @@ func main() {
 		fmt.Printf("[-] Warning: Browser cleanup encountered errors: %v\n", err)
 	}
 
-	// Phase 3: Empty directory removal
-	fmt.Println("\n[*] Phase 3: Empty directory cleanup")
-	stopProgress = progressTracker.StartProgress("Removing empty directories")
-
-	err = cleaner.RemoveEmptyDirectories(cfg.UserDirectories)
-	stopProgress()
-
-	if err != nil {
-		fmt.Printf("[-] Warning: Empty directory cleanup encountered errors: %v\n", err)
-	}
-
-	// Phase 4: Windows-specific cleanup
-	fmt.Println("\n[*] Phase 4: Windows system cleanup")
+	// Phase 3: Windows-specific cleanup
+	fmt.Println("\n[*] Phase 3: Windows system cleanup")
 	err = windowsCleaner.RunAllWindowsCleanup()
 	if err != nil {
 		fmt.Printf("[-] Warning: Windows cleanup encountered errors: %v\n", err)
@@ -96,8 +82,7 @@ func main() {
 	ui.PrintStats(cleaner.GetStats(), elapsed, diskInfo)
 
 	// Show backup information
-	registryManager := system.NewRegistryManager()
-	ui.ShowBackupInfo(registryManager.GetBackupDirectory())
+	ui.ShowBackupInfo(windowsCleaner.GetBackupDirectory())
 
 	// Display closing message
 	ui.PrintClosingMessage()

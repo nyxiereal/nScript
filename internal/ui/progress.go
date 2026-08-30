@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"sync/atomic"
 	"time"
 
 	"nScript/internal/cleanup"
@@ -12,9 +11,7 @@ import (
 
 // ProgressTracker handles progress reporting
 type ProgressTracker struct {
-	stats    *cleanup.Stats
-	stopFlag atomic.Bool
-	label    string
+	stats *cleanup.Stats
 }
 
 // NewProgressTracker creates a new progress tracker
@@ -26,8 +23,6 @@ func NewProgressTracker(stats *cleanup.Stats) *ProgressTracker {
 
 // StartProgress starts progress reporting and returns a stop function
 func (pt *ProgressTracker) StartProgress(label string) func() {
-	pt.label = label
-	pt.stopFlag.Store(false)
 	done := make(chan struct{})
 
 	go func() {
@@ -37,15 +32,12 @@ func (pt *ProgressTracker) StartProgress(label string) func() {
 		for {
 			select {
 			case <-ticker.C:
-				if pt.stopFlag.Load() {
-					return
-				}
 				files := pt.stats.DeletedFiles.Load()
 				folders := pt.stats.DeletedFolders.Load()
 				skipped := pt.stats.SkippedFiles.Load()
 				failed := pt.stats.FailedFiles.Load()
 				fmt.Printf("\r[*] %s | Files: %d | Folders: %d | Skipped: %d | Failed: %d",
-					pt.label, files, folders, skipped, failed)
+					label, files, folders, skipped, failed)
 			case <-done:
 				return
 			}
@@ -53,8 +45,6 @@ func (pt *ProgressTracker) StartProgress(label string) func() {
 	}()
 
 	return func() {
-		pt.stopFlag.Store(true)
-		done <- struct{}{}
 		close(done)
 		fmt.Println()
 	}
@@ -73,7 +63,6 @@ func PrintHeader(version string, forceMode bool) {
 		fmt.Println("[!] Force mode enabled - all files will be removed!")
 		fmt.Println("[!] WARNING: This will delete files regardless of age!")
 		fmt.Println("[!] Make sure you have backups of important data!")
-		time.Sleep(3 * time.Second)
 	}
 }
 
@@ -103,13 +92,6 @@ func PrintClosingMessage() {
 	fmt.Println("[*] ============================================")
 	fmt.Println("[*] Made by Nyx :3 https://nyx.meowery.eu/")
 	fmt.Println("[*] ============================================")
-	fmt.Print("[*] Closing in 3s...")
-	time.Sleep(1 * time.Second)
-	fmt.Print(" 2s...")
-	time.Sleep(1 * time.Second)
-	fmt.Print(" 1s...")
-	time.Sleep(1 * time.Second)
-	fmt.Println()
 }
 
 // ShowBackupInfo displays information about registry backups

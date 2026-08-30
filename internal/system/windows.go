@@ -3,7 +3,6 @@ package system
 import (
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,16 +12,12 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// ProcessManager handles Windows process operations with improved safety
-type ProcessManager struct {
-	processCache map[string]*windows.ProcessEntry32
-}
+// ProcessManager handles Windows process operations.
+type ProcessManager struct{}
 
-// NewProcessManager creates a new process manager
+// NewProcessManager creates a new process manager.
 func NewProcessManager() *ProcessManager {
-	return &ProcessManager{
-		processCache: make(map[string]*windows.ProcessEntry32),
-	}
+	return &ProcessManager{}
 }
 
 // ProcessInfo contains process information
@@ -40,11 +35,6 @@ func (pm *ProcessManager) ListProcesses() ([]ProcessInfo, error) {
 	defer windows.CloseHandle(snapshot)
 
 	var pe32 windows.ProcessEntry32
-
-	// Validate struct size before using unsafe operations
-	if unsafe.Sizeof(pe32) > math.MaxUint32 {
-		return nil, errors.New("ProcessEntry32 struct size overflow")
-	}
 	pe32.Size = uint32(unsafe.Sizeof(pe32))
 
 	if err := windows.Process32First(snapshot, &pe32); err != nil {
@@ -69,27 +59,6 @@ func (pm *ProcessManager) ListProcesses() ([]ProcessInfo, error) {
 	return processes, nil
 }
 
-// IsProcessRunning checks if a process is running with validation
-func (pm *ProcessManager) IsProcessRunning(name string) bool {
-	if name == "" {
-		return false
-	}
-
-	processes, err := pm.ListProcesses()
-	if err != nil {
-		return false
-	}
-
-	name = strings.ToLower(name)
-	for _, proc := range processes {
-		if strings.ToLower(proc.Name) == name {
-			return true
-		}
-	}
-
-	return false
-}
-
 // KillProcess safely terminates a process with confirmation
 func (pm *ProcessManager) KillProcess(name string, forceMode bool) error {
 	if name == "" {
@@ -102,7 +71,7 @@ func (pm *ProcessManager) KillProcess(name string, forceMode bool) error {
 	}
 
 	name = strings.ToLower(name)
-	var killed []uint32
+	killed := false
 
 	for _, proc := range processes {
 		if strings.ToLower(proc.Name) == name {
@@ -122,11 +91,11 @@ func (pm *ProcessManager) KillProcess(name string, forceMode bool) error {
 				return fmt.Errorf("failed to terminate process %s (PID: %d): %v", proc.Name, proc.PID, err)
 			}
 
-			killed = append(killed, proc.PID)
+			killed = true
 		}
 	}
 
-	if len(killed) == 0 {
+	if !killed {
 		return fmt.Errorf("process %s not found", name)
 	}
 
@@ -235,10 +204,9 @@ func RestartExplorer() error {
 		Sys:   cmd,
 	}
 
-	_, err := os.StartProcess(explorerPath, []string{}, proc)
+	process, err := os.StartProcess(explorerPath, []string{explorerPath}, proc)
 	if err != nil {
 		return fmt.Errorf("failed to restart explorer: %v", err)
 	}
-
-	return nil
+	return process.Release()
 }

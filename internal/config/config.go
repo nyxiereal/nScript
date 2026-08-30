@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -9,9 +10,9 @@ import (
 const (
 	Version             = "2.0.8"
 	OnlyRemoveOlderThan = 24 * time.Hour
-	MaxConcurrentOps    = 500
-	UpdateInterval      = 50 * time.Millisecond
-	MaxBatchSize        = 1000 // For streaming file processing
+	MaxConcurrentOps    = 16
+	UpdateInterval      = 250 * time.Millisecond
+	MaxBatchSize        = 1000
 )
 
 type Config struct {
@@ -20,23 +21,36 @@ type Config struct {
 	ExcludedExtensions []string
 }
 
-// GetConfig returns the hardcoded configuration as requested
-func GetConfig() *Config {
+// GetConfig returns the cleanup configuration.
+func GetConfig() (*Config, error) {
 	userHome := os.Getenv("USERPROFILE")
 	programData := os.Getenv("ProgramData")
+	programFiles := os.Getenv("ProgramFiles")
 	programFilesX86 := os.Getenv("ProgramFiles(x86)")
 
+	for name, value := range map[string]string{
+		"USERPROFILE":       userHome,
+		"ProgramData":       programData,
+		"ProgramFiles":      programFiles,
+		"ProgramFiles(x86)": programFilesX86,
+	} {
+		if value == "" {
+			return nil, fmt.Errorf("%s environment variable not set", name)
+		}
+	}
+
 	return &Config{
-		UserDirectories:    buildUserDirectories(userHome, programData, programFilesX86),
+		UserDirectories:    buildUserDirectories(userHome, programData, programFiles, programFilesX86),
 		BrowserInformation: buildBrowserInfo(userHome),
 		ExcludedExtensions: []string{
 			".iso", ".lnk",
 			// ".vdi", ".sav", ".vbox", ".vbox-prev", ".ovf", ".vbox-extpack", ".vhdx", ".qcow2", ".img", ".vmdk", ".vhd", ".hdd", ".nvram", ".ova",
 		},
-	}
+	}, nil
 }
 
-func buildUserDirectories(userHome, programData, programFilesX86 string) []string {
+func buildUserDirectories(userHome, programData, programFiles, programFilesX86 string) []string {
+	const systemRoot = `C:\`
 	return []string{
 		filepath.Join(userHome, "Downloads"),
 		filepath.Join(userHome, "Documents"),
@@ -71,34 +85,34 @@ func buildUserDirectories(userHome, programData, programFilesX86 string) []strin
 		filepath.Join(userHome, "AppData", "Roaming", "Godot"),
 		filepath.Join(userHome, "AppData", "Roaming", ".tlauncher"),
 		filepath.Join(userHome, "AppData", "Roaming", ".minecraft"),
-		filepath.Join("C:", "Steam"),
-		filepath.Join("C:", "Flashpoint"),
-		filepath.Join("C:", "Program Files", "Epic Games"),
-		filepath.Join("C:", "ProgramData", "Riot Games"),
+		filepath.Join(systemRoot, "Steam"),
+		filepath.Join(systemRoot, "Flashpoint"),
+		filepath.Join(programFiles, "Epic Games"),
+		filepath.Join(programData, "Riot Games"),
 		filepath.Join(userHome, "AppData", "Local", "Riot Games"),
 		filepath.Join(userHome, "AppData", "Roaming", "Riot Games"),
-		filepath.Join("C:", "Riot Games"),
+		filepath.Join(systemRoot, "Riot Games"),
 		filepath.Join(userHome, "AppData", "Local", "Programs", "Riot Games"),
 		filepath.Join(userHome, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Riot Games"),
 		filepath.Join(userHome, "AppData", "Local", "EA Games"),
 		filepath.Join(userHome, "AppData", "Roaming", "Origin"),
 		filepath.Join(userHome, "AppData", "Local", "Origin"),
-		filepath.Join("C:", "Program Files", "Origin"),
-		filepath.Join("C:", "Program Files (x86)", "Origin"),
+		filepath.Join(programFiles, "Origin"),
+		filepath.Join(programFilesX86, "Origin"),
 		filepath.Join(userHome, "AppData", "Local", "Battle.net"),
 		filepath.Join(userHome, "AppData", "Roaming", "Battle.net"),
-		filepath.Join("C:", "Program Files (x86)", "Battle.net"),
+		filepath.Join(programFilesX86, "Battle.net"),
 		filepath.Join(userHome, "AppData", "Local", "Blizzard Entertainment"),
 		filepath.Join(userHome, "AppData", "Roaming", "Blizzard Entertainment"),
 		filepath.Join(userHome, "AppData", "Local", "Steam"),
 		filepath.Join(userHome, "AppData", "Roaming", "Steam"),
 		filepath.Join(userHome, "AppData", "Local", "Programs", "Steam"),
-		filepath.Join("C:", "Program Files (x86)", "Steam"),
+		filepath.Join(programFilesX86, "Steam"),
 		filepath.Join(userHome, "AppData", "Local", "Ubisoft Game Launcher"),
-		filepath.Join("C:", "Program Files (x86)", "Ubisoft"),
+		filepath.Join(programFilesX86, "Ubisoft"),
 		filepath.Join(userHome, "AppData", "Roaming", "GOG.com"),
 		filepath.Join(userHome, "AppData", "Local", "GOG.com"),
-		filepath.Join("C:", "Program Files (x86)", "GOG Galaxy"),
+		filepath.Join(programFilesX86, "GOG Galaxy"),
 		filepath.Join(userHome, "AppData", "Roaming", "Minecraft Launcher"),
 		filepath.Join(userHome, "AppData", "Local", "Packages", "Microsoft.MinecraftUWP_8wekyb3d8bbwe"),
 		filepath.Join(userHome, "AppData", "Local", "CrashDumps"),
@@ -107,28 +121,24 @@ func buildUserDirectories(userHome, programData, programFilesX86 string) []strin
 		filepath.Join(userHome, "AppData", "Local", "VALORANT"),
 		filepath.Join(userHome, "AppData", "Local", "Rockstar Games"),
 		filepath.Join(userHome, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Rockstar Games"),
-		filepath.Join("C:", "Program Files", "Rockstar Games"),
+		filepath.Join(programFiles, "Rockstar Games"),
 		filepath.Join(userHome, "AppData", "Local", "2K"),
 		filepath.Join(userHome, "AppData", "Roaming", "2K"),
 		filepath.Join(userHome, "AppData", "Local", "ROBLOX Corporation"),
 		filepath.Join(userHome, "AppData", "Local", "Roblox Studio"),
 		filepath.Join(userHome, "AppData", "Local", "Programs", "Roblox"),
-		filepath.Join("C:", "Program Files (x86)", "Roblox"),
+		filepath.Join(programFilesX86, "Roblox"),
 		filepath.Join(userHome, "AppData", "Local", "Microsoft", "Games"),
 		filepath.Join(userHome, "AppData", "Local", "Packages", "Microsoft.GamingApp_8wekyb3d8bbwe"),
 		filepath.Join(userHome, "AppData", "Local", "Packages", "Microsoft.XboxApp_8wekyb3d8bbwe"),
 		filepath.Join(userHome, "AppData", "Local", "Packages", "Microsoft.XboxGamingOverlay_8wekyb3d8bbwe"),
 		filepath.Join(userHome, "AppData", "Local", "SquareEnix"),
-		filepath.Join(userHome, "Documents", "My Games"),
-		filepath.Join(userHome, "Documents", "EA Games"),
-		filepath.Join(userHome, "Documents", "Rockstar Games"),
-		filepath.Join(userHome, "Saved Games", "EA"),
 		filepath.Join(userHome, "AppData", "Local", "TeamViewer"),
 		filepath.Join(userHome, "AppData", "Roaming", "TeamViewer"),
-		filepath.Join("C:", "Program Files (x86)", "TeamViewer"),
+		filepath.Join(programFilesX86, "TeamViewer"),
 		filepath.Join(userHome, "AppData", "Local", "AnyDesk"),
 		filepath.Join(userHome, "AppData", "Roaming", "AnyDesk"),
-		filepath.Join("C:", "Program Files (x86)", "AnyDesk"),
+		filepath.Join(programFilesX86, "AnyDesk"),
 		filepath.Join(userHome, "AppData", "Local", "Spotify"),
 		filepath.Join(userHome, "AppData", "Roaming", "Spotify"),
 		filepath.Join(userHome, "AppData", "Local", "Programs", "Spotify"),
@@ -172,8 +182,6 @@ func buildBrowserInfo(userHome string) map[string][]string {
 		"opera.exe": {
 			filepath.Join(userHome, "AppData", "Roaming", "Opera Software", "Opera Stable"),
 			filepath.Join(userHome, "AppData", "Local", "Opera Software", "Opera Stable"),
-			filepath.Join(userHome, "AppData", "Roaming", "Opera Software"),
-			filepath.Join(userHome, "AppData", "Local", "Opera Software"),
 			filepath.Join(userHome, "AppData", "Local", "Programs", "Opera"),
 		},
 		"opera_gx.exe": {

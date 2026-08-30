@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,6 +23,11 @@ func NewWindowsCleaner() *WindowsCleaner {
 		registryManager: system.NewRegistryManager(),
 		processManager:  system.NewProcessManager(),
 	}
+}
+
+// GetBackupDirectory returns the registry backup directory.
+func (wc *WindowsCleaner) GetBackupDirectory() string {
+	return wc.registryManager.GetBackupDirectory()
 }
 
 // ClearStartMenuTiles clears Start Menu tiles with improved safety
@@ -47,42 +53,23 @@ func (wc *WindowsCleaner) ClearStartMenuTiles() error {
 	// Method 1: Delete the Start Menu database directly
 	fmt.Println("[*] Clearing Start Menu database...")
 	startDbPath := filepath.Join(userHome, "Packages", "Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy", "LocalState")
-	if _, err := os.Stat(startDbPath); err == nil {
-		dbFiles := []string{
-			filepath.Join(startDbPath, "start.db"),
-			filepath.Join(startDbPath, "start.db-journal"),
-		}
-
-		for _, dbFile := range dbFiles {
-			if err := os.Remove(dbFile); err == nil && strings.HasSuffix(dbFile, "start.db") {
-				fmt.Println("[+] Removed Start Menu database")
-			}
+	dbFiles := []string{
+		filepath.Join(startDbPath, "start.db"),
+		filepath.Join(startDbPath, "start.db-journal"),
+	}
+	for _, dbFile := range dbFiles {
+		if err := os.Remove(dbFile); err == nil && strings.HasSuffix(dbFile, "start.db") {
+			fmt.Println("[+] Removed Start Menu database")
 		}
 	}
 
 	// Method 2: Clear TileDataLayer database
 	fmt.Println("[*] Clearing TileDataLayer...")
 	tileDataPath := filepath.Join(userHome, "Packages", "Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy", "TileDataLayer")
-	if _, err := os.Stat(tileDataPath); err == nil {
-		wc.processManager.KillProcess("StartMenuExperienceHost.exe", true)
-		time.Sleep(1 * time.Second)
-
-		// Recursively remove all files in TileDataLayer
-		err := filepath.Walk(tileDataPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return nil
-			}
-			if path != tileDataPath {
-				os.RemoveAll(path)
-			}
-			return nil
-		})
-
-		if err == nil {
-			if err := os.RemoveAll(tileDataPath); err == nil {
-				fmt.Println("[+] Cleared TileDataLayer")
-			}
-		}
+	if err := os.RemoveAll(tileDataPath); err != nil {
+		fmt.Printf("[-] Warning: Failed to clear TileDataLayer: %v\n", err)
+	} else {
+		fmt.Println("[+] Cleared TileDataLayer")
 	}
 
 	// Method 3: Clear Start Menu registry entries
@@ -119,10 +106,8 @@ func (wc *WindowsCleaner) cleanWindows10StartMenu() {
 	}
 
 	for _, location := range locations {
-		if _, err := os.Stat(location); err == nil {
-			if err := os.RemoveAll(location); err == nil {
-				fmt.Printf("[+] Cleared Windows 10 location: %s\n", filepath.Base(location))
-			}
+		if err := os.RemoveAll(location); err == nil {
+			fmt.Printf("[+] Cleared Windows 10 location: %s\n", filepath.Base(location))
 		}
 	}
 }
@@ -137,12 +122,10 @@ func (wc *WindowsCleaner) ClearRecentItemsFolder() error {
 
 	recentPath := filepath.Join(appData, "Microsoft", "Windows", "Recent")
 
-	// If the directory doesn't exist, nothing to do
-	if _, err := os.Stat(recentPath); os.IsNotExist(err) {
+	entries, err := os.ReadDir(recentPath)
+	if os.IsNotExist(err) {
 		return nil
 	}
-
-	entries, err := os.ReadDir(recentPath)
 	if err != nil {
 		return fmt.Errorf("failed to read Recent folder: %v", err)
 	}
@@ -175,11 +158,10 @@ func (wc *WindowsCleaner) ClearThumbnailCache() error {
 
 	explorerPath := filepath.Join(localAppData, "Microsoft", "Windows", "Explorer")
 
-	if _, err := os.Stat(explorerPath); os.IsNotExist(err) {
+	entries, err := os.ReadDir(explorerPath)
+	if os.IsNotExist(err) {
 		return nil
 	}
-
-	entries, err := os.ReadDir(explorerPath)
 	if err != nil {
 		return fmt.Errorf("failed to read Explorer cache directory: %v", err)
 	}
@@ -216,11 +198,11 @@ func (wc *WindowsCleaner) RunAllWindowsCleanup() error {
 		{"Dark mode", wc.registryManager.EnableDarkMode},
 	}
 
-	var lastError error
+	var errs []error
 	for _, op := range operations {
 		if err := op.fn(); err != nil {
 			fmt.Printf("[-] Warning: %s operation failed: %v\n", op.name, err)
-			lastError = err
+			errs = append(errs, err)
 		}
 	}
 
@@ -228,10 +210,10 @@ func (wc *WindowsCleaner) RunAllWindowsCleanup() error {
 	fmt.Println("[*] Emptying recycle bin...")
 	if err := system.ClearRecycleBin(); err != nil {
 		fmt.Printf("[-] Warning: Failed to empty recycle bin: %v\n", err)
-		lastError = err
+		errs = append(errs, err)
 	} else {
 		fmt.Println("[+] Recycle bin emptied")
 	}
 
-	return lastError
+	return errors.Join(errs...)
 }
