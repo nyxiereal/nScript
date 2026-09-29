@@ -6,12 +6,26 @@ if ($Errors.Count) { throw "get-vbox.ps1 has syntax errors: $Errors" }
 
 $Script = Get-Content $Path -Raw
 $Steps = @(
-    '& $CleanerPath --force'
-    'Start-BitsTransfer -Source ($BaseUrl + $InstallerName)'
-    'Get-AuthenticodeSignature $InstallerPath'
-    'Start-Process -FilePath $InstallerPath -Verb RunAs'
+    'Get-Command winget.exe',
+    '& $CleanerPath --force',
+    '$Install = {',
+    'Start-Process -FilePath ''powershell.exe'' -Verb RunAs'
 )
 $Positions = @($Steps | ForEach-Object { $Script.IndexOf($_) })
 if ($Positions -contains -1 -or ($Positions -join ',') -ne (($Positions | Sort-Object) -join ',') -or ([regex]::Matches($Script, '-Verb RunAs')).Count -ne 1) {
-    throw 'Cleanup, download, signature verification and installer-only elevation must occur in that order'
+    throw 'WinGet preflight, user cleanup and single elevation must occur in that order'
+}
+foreach ($Id in @('Inkscape.Inkscape', 'GIMP.GIMP.3', 'Microsoft.VisualStudioCode', 'Python.Python.3.14', 'Notepad++.Notepad++', 'Orwell.Dev-C++', 'EclipseAdoptium.Temurin.25.JDK', 'JetBrains.PyCharm.Community', 'CodeBlocks.CodeBlocks.MinGW', 'JetBrains.IntelliJIDEA.Community')) {
+    if (-not $Script.Contains("'$Id'")) { throw "Missing package: $Id" }
+}
+foreach ($Flag in @('--exact', '--scope', '--silent', '--disable-interactivity', '--accept-source-agreements', '--accept-package-agreements')) {
+    if (-not $Script.Contains("'$Flag'")) { throw "Missing WinGet flag: $Flag" }
+}
+if ($Script -match 'VirtualBox|Embarcadero') { throw 'Old installer still present' }
+
+foreach ($Dropper in @('get.ps1', 'get-force.ps1', 'get-vbox.ps1')) {
+    $Body = Get-Content (Join-Path $PSScriptRoot $Dropper) -Raw
+    if ($Body -notmatch '\$env:USERPROFILE\s+[''\"]\.nScript[''\"]' -or $Body -match '\$env:TEMP\b') {
+        throw "$Dropper must stage the executable outside the Temp cleanup target"
+    }
 }

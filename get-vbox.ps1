@@ -1,34 +1,53 @@
 $ErrorActionPreference = 'Stop'
 
-$TempPath = Join-Path $env:TEMP 'nScript'
-$CleanerPath = Join-Path $TempPath 'nScript.exe'
-$InstallerPath = Join-Path $TempPath 'VirtualBox-Win.exe'
-New-Item -ItemType Directory -Path $TempPath -Force | Out-Null
+# Keep cleanup under the signed-in user's account, before the single UAC prompt.
+if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+    throw 'WinGet is required. Install or update App Installer before running cleanup.'
+}
+
+# Force cleanup wipes Temp; stage the running executable outside its deletion targets.
+$WorkPath = Join-Path $env:USERPROFILE '.nScript'
+$CleanerPath = Join-Path $WorkPath 'nScript.exe'
+New-Item -ItemType Directory -Path $WorkPath -Force | Out-Null
 
 try {
-    Write-Host '[!] Force cleanup will delete files and browser profiles before installing VirtualBox.'
+    Write-Host '[!] Force cleanup will delete files and browser profiles before installing apps.'
     Start-BitsTransfer -Source 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.exe' -Destination $CleanerPath
     & $CleanerPath --force
     if ($LASTEXITCODE -ne 0) { throw "nScript exited with code $LASTEXITCODE" }
 
-    $Version = (Invoke-RestMethod 'https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT').Trim()
-    if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Unexpected VirtualBox version: $Version" }
-    $BaseUrl = "https://download.virtualbox.org/virtualbox/$Version/"
-    $Index = Invoke-RestMethod $BaseUrl
-    $InstallerName = [regex]::Match($Index, 'VirtualBox-' + [regex]::Escape($Version) + '-\d+-Win\.exe').Value
-    if (-not $InstallerName) { throw 'VirtualBox Windows installer not found' }
-
-    Start-BitsTransfer -Source ($BaseUrl + $InstallerName) -Destination $InstallerPath
-    $Signature = Get-AuthenticodeSignature $InstallerPath
-    if ($Signature.Status -ne 'Valid' -or $Signature.SignerCertificate.Subject -notmatch 'Oracle (America, Inc\.|Corporation)') {
-        throw 'VirtualBox installer has no valid Oracle signature'
+    # Encode the install commands because this script can be run via Invoke-Expression (no script path).
+    $Install = {
+        $ErrorActionPreference = 'Stop'
+        if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+            throw 'WinGet is unavailable in the elevated account. Install App Installer for that account.'
+        }
+        $Failed = @()
+        foreach ($Id in @(
+            'Inkscape.Inkscape',
+            'GIMP.GIMP.3',
+            'Microsoft.VisualStudioCode',
+            'Python.Python.3.14',
+            'Notepad++.Notepad++',
+            'Orwell.Dev-C++',
+            'EclipseAdoptium.Temurin.25.JDK',
+            'JetBrains.PyCharm.Community',
+            'CodeBlocks.CodeBlocks.MinGW',
+            'JetBrains.IntelliJIDEA.Community'
+        )) {
+            $Options = @('install', '--id', $Id, '--exact', '--source', 'winget', '--silent', '--disable-interactivity', '--accept-source-agreements', '--accept-package-agreements')
+            # GIMP's WinGet manifest does not declare a scope; the others support machine installs.
+            if ($Id -ne 'GIMP.GIMP.3') { $Options += @('--scope', 'machine') }
+            & winget.exe @Options
+            if ($LASTEXITCODE -ne 0) { $Failed += "$Id ($LASTEXITCODE)" }
+        }
+        if ($Failed.Count) { throw "WinGet failed to install: $($Failed -join ', ')" }
     }
-
-    # Only the installer requests UAC; cleanup runs under the current user's permissions.
-    $Process = Start-Process -FilePath $InstallerPath -Verb RunAs -Wait -PassThru
-    if ($Process.ExitCode -notin @(0, 3010)) { throw "VirtualBox installer exited with code $($Process.ExitCode)" }
-    if ($Process.ExitCode -eq 3010) { Write-Host 'VirtualBox installed; restart required.' }
+    $Encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Install.ToString()))
+    $Process = Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList "-NoProfile -EncodedCommand $Encoded" -Wait -PassThru
+    if ($Process.ExitCode -ne 0) { throw 'One or more app installs failed. Check the elevated PowerShell window or WinGet logs.' }
+    Write-Host 'App installation completed.'
 }
 finally {
-    Remove-Item -LiteralPath $CleanerPath, $InstallerPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $CleanerPath -Force -ErrorAction SilentlyContinue
 }

@@ -18,7 +18,7 @@ jobs:
               with:
                   go-version-file: go.mod
 
-            - name: Check VirtualBox launcher
+            - name: Check app installer launcher
               run: pwsh -File ./test-get-vbox.ps1
 
             - name: Download deps
@@ -54,17 +54,13 @@ jobs:
                   mkdir -p ../dist-temp
                   cp nScript.exe get.ps1 get-force.ps1 get-vbox.ps1 vercel.json ../dist-temp/
 
-                  # Create a new orphan dist branch or checkout if it exists on origin
-                  git fetch origin dist:dist || true
-                  if git show-ref --verify --quiet refs/heads/dist; then
-                    git checkout dist
-                    git rm -rf . || true
-                  else
-                    git checkout --orphan dist
-                    git rm -rf . || true
-                  fi
+                  git fetch origin dist:dist
+                  git checkout dist
+                  git rm -rf .
 
                   cp -r ../dist-temp/* .
                   git add -f nScript.exe get.ps1 get-force.ps1 get-vbox.ps1 vercel.json
-                  git commit -m "build: publish artifacts for $GITHUB_REF_NAME" || echo "No changes to commit"
-                  git push -f origin dist || echo "Push failed"
+                  if ! git diff --cached --quiet; then
+                    git commit -m "build: publish artifacts for $GITHUB_REF_NAME"
+                  fi
+                  git push origin dist
