@@ -10,6 +10,10 @@
       "destination": "/get-force.ps1"
     },
     {
+      "source": "/v",
+      "destination": "/get-vbox.ps1"
+    },
+    {
       "source": "/nScript.exe",
       "destination": "/nScript.exe"
     }
