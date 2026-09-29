@@ -2,17 +2,18 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $BinaryName = "nScript.exe"
-$TempPath = Join-Path $env:TEMP "nScript"
-$BinaryPath = Join-Path $TempPath $BinaryName
+# Force cleanup wipes Temp; keep the running executable outside it.
+$WorkPath = Join-Path $env:USERPROFILE ".nScript"
+$BinaryPath = Join-Path $WorkPath $BinaryName
 
 Write-Host "[*] nScript Dropper" -ForegroundColor Cyan
 Write-Host "[!] WARNING: FORCE MODE - This will delete ALL files in configured directories!" -ForegroundColor Red
 Write-Host "[!] This action cannot be undone!" -ForegroundColor Red
 Write-Host ""
 
-# Create temp directory
-if (-not (Test-Path $TempPath)) {
-    New-Item -ItemType Directory -Path $TempPath -Force | Out-Null
+# Create staging directory
+if (-not (Test-Path $WorkPath)) {
+    New-Item -ItemType Directory -Path $WorkPath -Force | Out-Null
 }
 
 try {
