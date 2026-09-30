@@ -6,7 +6,7 @@ if ($Errors.Count) { throw "get-vbox.ps1 has syntax errors: $Errors" }
 
 $Script = Get-Content $Path -Raw
 $Steps = @(
-    'Start-BitsTransfer -Source ''https://clean.meowery.eu/winget-portable.zip''',
+    'Start-BitsTransfer -Source ''https://raw.githubusercontent.com/nyxiereal/nScript/dist/winget-portable.zip''',
     'Expand-Archive -LiteralPath $WingetArchive',
     '& $WingetPath --version',
     '& $CleanerPath --force',

@@ -10,7 +10,7 @@ $ExpectedWingetHash = '88536696deaa13ea7441df74a62dd782f8cac75e46a23407b63b7ce8d
 New-Item -ItemType Directory -Path $WorkPath -Force | Out-Null
 
 try {
-    Start-BitsTransfer -Source 'https://clean.meowery.eu/winget-portable.zip' -Destination $WingetArchive
+    Start-BitsTransfer -Source 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/winget-portable.zip' -Destination $WingetArchive
     if ((Get-FileHash -LiteralPath $WingetArchive -Algorithm SHA256).Hash -ne $ExpectedWingetHash) {
         throw 'Portable WinGet download failed integrity check; cleanup was not run.'
     }
