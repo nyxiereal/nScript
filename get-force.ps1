@@ -17,7 +17,7 @@ if (-not (Test-Path $WorkPath)) {
 }
 
 try {
-    $DownloadUrl = "https://clean.meowery.eu/nScript.exe"
+    $DownloadUrl = "https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.exe"
     
     Write-Host "[*] Downloading $BinaryName..." -ForegroundColor Yellow
     Start-BitsTransfer -Source $DownloadUrl -Destination $BinaryPath

