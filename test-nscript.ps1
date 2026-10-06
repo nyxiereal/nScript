@@ -50,7 +50,25 @@ Assert (Test-NsEligibleFile 'C:\foo\old.txt' $excluded ($cutoff.AddDays(-3)) $cu
 $config = New-NsConfig -UserProfile 'H:\Profile' -ProgramData 'D:\Data' `
     -ProgramFiles 'P:\Files' -ProgramFilesX86 'X:\Files' -AppData 'H:\Roaming' `
     -LocalAppData 'H:\Local' -WindowsDirectory 'C:\Windows'
-Assert ($config.UserDirectories.Count -eq 118) 'Go user path parity count'
+Assert ($config.UserDirectories.Count -eq 128) '118 original paths plus 10 verified targets'
+# Preserve the complete 118-entry Go baseline, not just its first and last elements.
+$baseline = [string]::Join("`n", @($config.UserDirectories[0..117] | ForEach-Object { $_ -replace '[\\/]+', '\' }))
+$sha = [Security.Cryptography.SHA256]::Create()
+try { $digest = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($baseline))).Replace('-', '').ToLowerInvariant() }
+finally { $sha.Dispose() }
+Assert ($digest -eq 'b9be3f49bdf2e8c170796916c4c0867af75171b046726a0d9e06d356ca6e1598') 'Original 118-entry prefix changed'
+$additional = @(
+    'AppData\Local\Bloxstrap', 'AppData\Local\Fishstrap',
+    'AppData\Local\Programs\PrismLauncher', 'AppData\Roaming\PrismLauncher',
+    'AppData\Roaming\ModrinthApp',
+    'AppData\Local\Programs\lunarclient', '.lunarclient',
+    'AppData\Roaming\Vencord', 'AppData\Roaming\Vesktop',
+    'AppData\Roaming\BetterDiscord'
+)
+for ($i = 0; $i -lt $additional.Count; $i++) {
+    Assert ($config.UserDirectories[118 + $i] -eq [IO.Path]::Combine('H:\Profile', $additional[$i])) "Verified target $($additional[$i])"
+}
+Assert (@($config.UserDirectories | Sort-Object -Unique).Count -eq $config.UserDirectories.Count) 'Duplicate user path'
 Assert ($config.BrowserInformation.Count -eq 20) 'Go browser count'
 Assert (@($config.BrowserInformation.Values | ForEach-Object { $_ }).Count -eq 39) 'Go browser path parity count'
 Assert ($config.UserDirectories[0] -eq [IO.Path]::Combine('H:\Profile', 'Downloads')) 'Downloads root'

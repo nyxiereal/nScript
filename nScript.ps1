@@ -72,7 +72,13 @@ function New-NsConfig {
         'H|AppData\Roaming\uTorrent', 'H|AppData\Local\uTorrent',
         'H|AppData\Roaming\BitTorrent', 'H|AppData\Local\BitTorrent',
         'H|AppData\Local\Twitch', 'H|AppData\Roaming\Twitch',
-        'H|AppData\Local\Programs\Twitch', 'H|AppData\Local\itch', 'H|AppData\Roaming\itch'
+        'H|AppData\Local\Programs\Twitch', 'H|AppData\Local\itch', 'H|AppData\Roaming\itch',
+        'H|AppData\Local\Bloxstrap', 'H|AppData\Local\Fishstrap',
+        'H|AppData\Local\Programs\PrismLauncher', 'H|AppData\Roaming\PrismLauncher',
+        'H|AppData\Roaming\ModrinthApp',
+        'H|AppData\Local\Programs\lunarclient', 'H|.lunarclient',
+        'H|AppData\Roaming\Vencord', 'H|AppData\Roaming\Vesktop',
+        'H|AppData\Roaming\BetterDiscord'
     )
     $roots = @{ H = $h; D = $d; P = $p; X = $x; C = 'C:\' }
     $directories = @($paths | ForEach-Object {
