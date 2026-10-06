@@ -36,3 +36,20 @@ foreach ($Dropper in @('get.ps1', 'get-force.ps1', 'get-vbox.ps1')) {
         throw "$Dropper must stage the executable outside the Temp cleanup target"
     }
 }
+
+foreach ($Dropper in @('get.cmd', 'get-force.cmd')) {
+    $Body = Get-Content (Join-Path $PSScriptRoot $Dropper) -Raw
+    if ($Body -notmatch '%USERPROFILE%\\\.nScript' -or $Body -match '%TEMP%|%TMP%') {
+        throw "$Dropper must stage the executable outside the Temp cleanup target"
+    }
+    if ($Body -notmatch 'curl\.exe -fsSL' -or $Body -notmatch 'certutil -urlcache -split -f' -or $Body -notmatch 'LSS 100000') {
+        throw "$Dropper must use the LOLBin downloaders and reject partial downloads"
+    }
+    if ($Body -notmatch 'del /f /q "%BinaryPath%"') {
+        throw "$Dropper must delete the staged executable"
+    }
+}
+if ((Get-Content (Join-Path $PSScriptRoot 'get.cmd') -Raw) -match '--force' -or
+    (Get-Content (Join-Path $PSScriptRoot 'get-force.cmd') -Raw) -notmatch '"%BinaryPath%" --force') {
+    throw 'Only get-force.cmd may pass force mode'
+}
