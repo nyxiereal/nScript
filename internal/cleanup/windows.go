@@ -196,6 +196,8 @@ func (wc *WindowsCleaner) RunAllWindowsCleanup() error {
 		{"Explorer UserAssist", wc.registryManager.ClearExplorerUserAssist},
 		{"ComDlg MRU", wc.registryManager.ClearComDlgMRU},
 		{"Dark mode", wc.registryManager.EnableDarkMode},
+		{"Firefox policies", wc.registryManager.ConfigureFirefoxPolicies},
+		{"Chrome policies", wc.registryManager.ConfigureChromePolicies},
 	}
 
 	var errs []error
