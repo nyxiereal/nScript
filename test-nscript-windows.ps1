@@ -1,17 +1,22 @@
-# Parse only. Never load or invoke the cleanup fragment.
-$source = Join-Path $PSScriptRoot 'nScript.Windows.ps1'
+# Parse only. Never load or invoke the cleaner.
+$ErrorActionPreference = 'Stop'
+$source = Join-Path $PSScriptRoot 'nScript.ps1'
 $tokens = $null
 $errors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($source, [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }
-$functions = @($ast.EndBlock.Statements)
-if ($functions.Count -eq 0 -or @($functions | Where-Object { $_ -isnot [System.Management.Automation.Language.FunctionDefinitionAst] }).Count) {
-    throw 'Windows fragment must contain only function definitions'
+$functions = @($ast.EndBlock.Statements | Where-Object { $_ -is [System.Management.Automation.Language.FunctionDefinitionAst] })
+foreach ($name in @('Invoke-NsWindowsCleanup', 'Remove-NsTree')) {
+    if (@($functions | Where-Object Name -eq $name).Count -ne 1) {
+        throw "Self-contained cleaner must define $name"
+    }
 }
-$main = @($functions | Where-Object Name -eq 'Invoke-NsWindowsCleanup')
-if ($main.Count -ne 1 -or $main[0].Body.Extent.Text -notmatch 'Get-Command Remove-NsTree -CommandType Function') {
-    throw 'Windows cleanup must require the core tree remover before mutations'
-}
+# Without -NoReparse this validator is lexical only; do not inspect the host filesystem.
+$validator = @($functions | Where-Object Name -eq 'Assert-NsWindowsPath')
+if ($validator.Count -ne 1) { throw 'Missing Windows path validator' }
+Invoke-Expression $validator[0].Extent.Text
+Assert-NsWindowsPath -Path 'C:\Users\Student[1]'
+Assert-NsWindowsPath -Path 'C:\Users\Student[1]\.nScript\registry-backups'
 $pure = @($functions | Where-Object Name -eq 'Merge-NsFirefoxExtensionSettings')
 if ($pure.Count -ne 1) { throw 'Missing pure Firefox JSON merge function' }
 # Only evaluate the AST-extracted, registry-free JSON function, never the full source.

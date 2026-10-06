@@ -1,6 +1,10 @@
 # nScript
 
-PowerShell 5.1 system cleanup for Windows 10/11. Normal mode removes old garbage and temporary files, cleans browser profiles, removes unwanted apps, and configures Firefox and Chrome with DuckDuckGo and ad blocking. Force mode deletes files and browser profiles without asking. **Review `nScript.ps1` before running either mode; cleanup cannot be undone.**
+PowerShell 5.1 system cleanup for Windows 10/11. **Review `nScript.ps1` before running either mode; cleanup cannot be undone.**
+
+Normal mode removes general files older than 24 hours and leaves running browsers alone. Closed-browser profiles, Windows history/caches, and the recycle bin are cleared regardless of age. Force mode also removes newer general files and stops browsers before deleting their profiles. General file cleanup preserves `.iso` and `.lnk` files except the configured app-name exceptions. Both modes preserve directories starting with `GT Works3` or `GX Works3` (case-insensitive), including their contents, and never traverse junctions/symlinks.
+
+Cleanup is best-effort: inaccessible files are reported and skipped. Registry keys are exported to restorable `.reg` files in `%USERPROFILE%\.nScript\registry-backups` before deletion; failed exports prevent deletion. Those backups survive cleanup. Fatal startup/download errors fail the launch, while individual cleanup warnings do not prevent `/v` from installing apps.
 
 ## Run
 
@@ -16,7 +20,7 @@ irm https://clean.meowery.eu/fc | iex     # force via get-force.cmd
 
 Or download `get.cmd` / `get-force.cmd` and run them from `cmd.exe`. Both batch launchers require Windows PowerShell 5.1. They do not bypass execution policy, application control, or UAC. If script execution is blocked, use a policy permitted by your administrator; these launchers do not pass `-ExecutionPolicy Bypass`.
 
-All launchers download the **real** `nScript.ps1` artifact from `https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.ps1`, stage it under `%USERPROFILE%\.nScript` outside the Temp cleanup target, and run it in a child `powershell.exe -NoProfile -File` process (with `-Force` for force routes). `/`, `/f`, `/v`, `/c`, and `/fc` remain PowerShell-text routes; direct `.ps1` URLs serve plain UTF-8 text. `/c` and `/fc` download the corresponding batch launcher and run it through `cmd.exe`. The old `/nScript.exe` route is retired: there was no live executable asset to serve. Use `/nScript.ps1` for the actual source artifact.
+All launchers download the **real** `nScript.ps1` artifact from `https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.ps1`, stage it under `%USERPROFILE%\.nScript` outside the Temp cleanup target, and run it in a child `powershell.exe -NoProfile -File` process (with `-Force` for force routes). `/`, `/f`, `/v`, `/c`, and `/fc` remain PowerShell-text routes; direct `.ps1` URLs serve plain UTF-8 text. `/c` and `/fc` download the corresponding batch launcher and run it through `cmd.exe`. The old `/nScript.exe` artifact is retired rather than serving script text under an executable name. Use `/nScript.ps1` for the actual source artifact.
 
 `/v` downloads a pinned portable x64 WinGet bundle before force cleanup under the signed-in user's account, checks its SHA-256 and runs `winget --version`. After cleanup it requests UAC **once** to install Inkscape, GIMP 3, VS Code, Python 3.14, Notepad++, Orwell Dev-C++, Temurin 25 JDK, PyCharm Community, Code::Blocks with MinGW, and IntelliJ IDEA Community. The elevated process verifies a private copy of the archive before using it. No App Installer registration is required; the release workflow bundles WinGet from Microsoft's pinned v1.29.380 release and checks the archive hash. Installer scope varies by package; cleanup may leave admin-protected files behind.
 
@@ -24,4 +28,4 @@ After browser cleanup, nScript applies policies for the signed-in Windows user (
 
 ## Validate without running cleanup
 
-`pwsh -NoProfile -File ./test-get-vbox.ps1` checks the launchers, routes and release workflow statically. `pwsh -NoProfile -File ./test-nscript.ps1` checks the core script. The workflow also runs both plus `test-nscript-windows.ps1` under **Windows PowerShell 5.1** before publishing. `make` and `./build.fish` run safe checks only; there is no Go or EXE build.
+`pwsh -NoProfile -File ./test-get-vbox.ps1` checks the launchers, routes and release workflow statically. `pwsh -NoProfile -File ./test-nscript.ps1` checks the core script's syntax and pure path/configuration logic; `pwsh -NoProfile -File ./test-nscript-windows.ps1` checks integration and pure Firefox JSON merging. None invokes the cleaner, filesystem deletion, process termination, or registry changes. The workflow also runs both plus `test-nscript-windows.ps1` under **Windows PowerShell 5.1** before publishing. `make` and `./build.fish` run safe checks only; there is no Go or EXE build.

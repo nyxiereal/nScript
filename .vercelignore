@@ -1,9 +1,8 @@
-# Source code
-*.go
-go.mod
-go.sum
+# Development-only files (nScript.ps1 is the distribution artifact)
+test-*.ps1
 Makefile
 build.fish
+readme.md
 
 # Git
 .git

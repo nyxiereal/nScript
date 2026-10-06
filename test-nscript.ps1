@@ -1,10 +1,22 @@
 ﻿# Safe on any host: parse the cleaner, then load ONLY pure selectors/config functions.
+$ErrorActionPreference = 'Stop'
 $tokens = $null
 $errors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot 'nScript.ps1'), [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw "nScript.ps1 syntax errors: $errors" }
+# Catch missing integrated helpers without invoking any of them.
+$defined = @($ast.EndBlock.Statements | Where-Object {
+    $_ -is [System.Management.Automation.Language.FunctionDefinitionAst]
+} | ForEach-Object { $_.Name })
+$calls = $ast.FindAll({ param($node)
+    $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -match '^[A-Za-z]+-Ns'
+}, $true)
+foreach ($call in $calls) {
+    if ($defined -notcontains $call.GetCommandName()) { throw "Undefined helper: $($call.GetCommandName())" }
+}
 $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'nScript.ps1'))
+if ($source -match '\$env:TEMP\b') { throw 'Startup must not depend on unused TEMP, which can use short names' }
 if ($source -notmatch '-KeepRoot -IgnoreAge:\$ForceMode' -or $source -match '-Unconditional:\$ForceMode') {
     throw 'General force cleanup must bypass age, not extension exclusions'
 }
@@ -37,7 +49,7 @@ Assert (-not (Test-NsEligibleFile 'C:\foo\young.txt' $excluded $cutoff $cutoff $
 Assert (Test-NsEligibleFile 'C:\foo\old.txt' $excluded ($cutoff.AddDays(-3)) $cutoff $false) 'Normal mode removes old files'
 $config = New-NsConfig -UserProfile 'H:\Profile' -ProgramData 'D:\Data' `
     -ProgramFiles 'P:\Files' -ProgramFilesX86 'X:\Files' -AppData 'H:\Roaming' `
-    -LocalAppData 'H:\Local' -Temp 'H:\Temp' -WindowsDirectory 'C:\Windows'
+    -LocalAppData 'H:\Local' -WindowsDirectory 'C:\Windows'
 Assert ($config.UserDirectories.Count -eq 118) 'Go user path parity count'
 Assert ($config.BrowserInformation.Count -eq 20) 'Go browser count'
 Assert (@($config.BrowserInformation.Values | ForEach-Object { $_ }).Count -eq 39) 'Go browser path parity count'

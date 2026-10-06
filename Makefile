@@ -9,3 +9,4 @@ build: test
 test:
 	pwsh -NoProfile -File ./test-get-vbox.ps1
 	pwsh -NoProfile -File ./test-nscript.ps1
+	pwsh -NoProfile -File ./test-nscript-windows.ps1
