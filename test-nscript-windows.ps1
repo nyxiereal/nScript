@@ -8,6 +8,10 @@ $functions = @($ast.EndBlock.Statements)
 if ($functions.Count -eq 0 -or @($functions | Where-Object { $_ -isnot [System.Management.Automation.Language.FunctionDefinitionAst] }).Count) {
     throw 'Windows fragment must contain only function definitions'
 }
+$main = @($functions | Where-Object Name -eq 'Invoke-NsWindowsCleanup')
+if ($main.Count -ne 1 -or $main[0].Body.Extent.Text -notmatch 'Get-Command Remove-NsTree -CommandType Function') {
+    throw 'Windows cleanup must require the core tree remover before mutations'
+}
 $pure = @($functions | Where-Object Name -eq 'Merge-NsFirefoxExtensionSettings')
 if ($pure.Count -ne 1) { throw 'Missing pure Firefox JSON merge function' }
 # Only evaluate the AST-extracted, registry-free JSON function, never the full source.

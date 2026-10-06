@@ -240,6 +240,10 @@ function Invoke-NsWindowsCleanup {
     param([hashtable]$Stats, [hashtable]$Config)
 
     if ($null -eq $Stats -or $null -eq $Config) { throw 'Windows cleanup requires Stats and Config' }
+    # The core defines this function when the fragments are concatenated; fail before any mutations if omitted.
+    if (-not (Get-Command Remove-NsTree -CommandType Function -ErrorAction SilentlyContinue)) {
+        throw 'Remove-NsTree is missing; concatenate the core before invoking Windows cleanup'
+    }
     foreach ($name in @('DeletedFiles', 'DeletedFolders', 'SkippedFiles', 'FailedFiles')) {
         if (-not $Stats.ContainsKey($name)) { throw "Windows cleanup stats missing $name" }
     }
