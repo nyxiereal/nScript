@@ -1,0 +1,38 @@
+﻿# Safe on any host: parse the cleaner, then load ONLY four pure selectors/config functions.
+$tokens = $null
+$errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile(
+    (Join-Path $PSScriptRoot 'nScript.ps1'), [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw "nScript.ps1 syntax errors: $errors" }
+$allowed = @('New-NsConfig', 'Test-NsProtectedPath', 'Test-NsCriticalPath', 'Test-NsExcludedFile')
+foreach ($name in $allowed) {
+    $definitions = @($ast.EndBlock.Statements | Where-Object {
+        $_ -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -eq $name
+    })
+    if ($definitions.Count -ne 1) { throw "Missing or repeated pure function $name" }
+    . ([scriptblock]::Create($definitions[0].Extent.Text))
+}
+function Assert([bool]$condition, [string]$message) { if (-not $condition) { throw $message } }
+Assert (Test-NsProtectedPath 'C:\Other\gX WoRkS3 tools\data') 'Protected subtree case/prefix'
+Assert (Test-NsProtectedPath 'C:\GT Works3\x') 'Protected root'
+Assert (-not (Test-NsProtectedPath 'C:\Other\GT Works2\data')) 'Unrelated subtree'
+Assert (Test-NsCriticalPath 'C:\Windows\System32\drivers') 'Critical descendant'
+Assert (-not (Test-NsCriticalPath 'C:\Windows\System32Other')) 'Critical boundary'
+Assert (Test-NsExcludedFile 'C:\foo\archive.ISO' @('.iso', '.lnk')) 'ISO exclusion'
+Assert (Test-NsExcludedFile 'C:\foo\random.lnk' @('.iso', '.lnk')) 'Shortcut exclusion'
+Assert (-not (Test-NsExcludedFile 'C:\foo\Discord.lnk' @('.iso', '.lnk'))) 'Named shortcut exception'
+Assert (-not (Test-NsExcludedFile 'C:\foo\roblox.ISO' @('.iso', '.lnk'))) 'Named ISO exception'
+Assert (-not (Test-NsExcludedFile 'C:\foo\new.txt' @('.iso', '.lnk'))) 'Unexcluded file'
+$config = New-NsConfig -UserProfile 'H:\Profile' -ProgramData 'D:\Data' `
+    -ProgramFiles 'P:\Files' -ProgramFilesX86 'X:\Files' -AppData 'H:\Roaming' `
+    -LocalAppData 'H:\Local' -Temp 'H:\Temp' -WindowsDirectory 'C:\Windows'
+Assert ($config.UserDirectories.Count -eq 118) 'Go user path parity count'
+Assert ($config.BrowserInformation.Count -eq 20) 'Go browser count'
+Assert (@($config.BrowserInformation.Values | ForEach-Object { $_ }).Count -eq 39) 'Go browser path parity count'
+Assert ($config.UserDirectories[0] -eq [IO.Path]::Combine('H:\Profile', 'Downloads')) 'Downloads root'
+Assert ($config.UserDirectories -contains [IO.Path]::Combine('C:\', 'Flashpoint')) 'System-root Flashpoint'
+Assert ($config.UserDirectories -contains [IO.Path]::Combine('D:\Data', 'Microsoft\Windows\Start Menu\Programs\Startup\Roblox.lnk')) 'ProgramData shortcut'
+Assert ($config.BrowserInformation['opera_gx.exe'] -contains [IO.Path]::Combine('H:\Profile', 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Przeglądarka Opera GX.lnk')) 'Polish path encoding'
+Assert ($config.BackupDirectory -eq [IO.Path]::Combine('H:\Profile', '.nScript', 'registry-backups')) 'Backup outside Temp'
+Assert ($config.ExcludedExtensions -contains '.iso' -and $config.ExcludedExtensions -contains '.lnk') 'Excluded extensions'
+'Passed: AST and pure path/config checks (no cleaner executed)'
