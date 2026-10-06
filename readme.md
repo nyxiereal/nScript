@@ -6,6 +6,8 @@ Normal mode removes general files older than 24 hours and leaves running browser
 
 Cleanup is best-effort: inaccessible files are reported and skipped. Registry keys are exported to restorable `.reg` files in `%USERPROFILE%\.nScript\registry-backups` before deletion; failed exports prevent deletion. Those backups survive cleanup. Fatal startup/download errors fail the launch, while individual cleanup warnings do not prevent `/v` from installing apps.
 
+Additional app targets, exact default paths, source evidence and limitations are listed in [Verified Windows cleanup targets](docs/cleanup-targets.md). These are file/data cleanup targets, not full registered uninstallers.
+
 ## Run
 
 From Windows PowerShell:

@@ -50,7 +50,7 @@ Assert (Test-NsEligibleFile 'C:\foo\old.txt' $excluded ($cutoff.AddDays(-3)) $cu
 $config = New-NsConfig -UserProfile 'H:\Profile' -ProgramData 'D:\Data' `
     -ProgramFiles 'P:\Files' -ProgramFilesX86 'X:\Files' -AppData 'H:\Roaming' `
     -LocalAppData 'H:\Local' -WindowsDirectory 'C:\Windows'
-Assert ($config.UserDirectories.Count -eq 128) '118 original paths plus 10 verified targets'
+Assert ($config.UserDirectories.Count -eq 140) '118 original paths plus 22 verified targets'
 # Preserve the complete 118-entry Go baseline, not just its first and last elements.
 $baseline = [string]::Join("`n", @($config.UserDirectories[0..117] | ForEach-Object { $_ -replace '[\\/]+', '\' }))
 $sha = [Security.Cryptography.SHA256]::Create()
@@ -63,11 +63,18 @@ $additional = @(
     'AppData\Roaming\ModrinthApp',
     'AppData\Local\Programs\lunarclient', '.lunarclient',
     'AppData\Roaming\Vencord', 'AppData\Roaming\Vesktop',
-    'AppData\Roaming\BetterDiscord'
+    'AppData\Roaming\BetterDiscord',
+    'AppData\Roaming\Discord', 'AppData\Roaming\CurseForge',
+    'AppData\Local\Medal', 'AppData\Local\Programs\Medal', 'AppData\Roaming\Medal',
+    'AppData\Roaming\Playnite',
+    'AppData\Local\osulazer', 'AppData\Roaming\osu',
+    'AppData\Local\Plutonium', 'AppData\Local\Nox'
 )
 for ($i = 0; $i -lt $additional.Count; $i++) {
     Assert ($config.UserDirectories[118 + $i] -eq [IO.Path]::Combine('H:\Profile', $additional[$i])) "Verified target $($additional[$i])"
 }
+Assert ($config.UserDirectories[138] -eq [IO.Path]::Combine('P:\Files', 'BlueStacks_nxt')) 'BlueStacks app root'
+Assert ($config.UserDirectories[139] -eq [IO.Path]::Combine('D:\Data', 'BlueStacks_nxt')) 'BlueStacks data root'
 Assert (@($config.UserDirectories | Sort-Object -Unique).Count -eq $config.UserDirectories.Count) 'Duplicate user path'
 Assert ($config.BrowserInformation.Count -eq 20) 'Go browser count'
 Assert (@($config.BrowserInformation.Values | ForEach-Object { $_ }).Count -eq 39) 'Go browser path parity count'

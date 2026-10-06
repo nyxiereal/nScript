@@ -13,7 +13,7 @@ function New-NsConfig {
     $d = $ProgramData
     $p = $ProgramFiles
     $x = $ProgramFilesX86
-    # Every line is one Go buildUserDirectories entry, in the same order.
+    # Original 118 Go targets, then source-verified additions in docs/cleanup-targets.md.
     $paths = @(
         'H|Downloads', 'H|Documents', 'H|Desktop', 'H|Videos', 'H|Music', 'H|Pictures',
         'H|3D Objects', 'H|Saved Games', 'H|Contacts', 'H|Links', 'H|Favorites',
@@ -73,12 +73,19 @@ function New-NsConfig {
         'H|AppData\Roaming\BitTorrent', 'H|AppData\Local\BitTorrent',
         'H|AppData\Local\Twitch', 'H|AppData\Roaming\Twitch',
         'H|AppData\Local\Programs\Twitch', 'H|AppData\Local\itch', 'H|AppData\Roaming\itch',
+        # Additional app-specific defaults; no shared parent directories or discovery scans.
         'H|AppData\Local\Bloxstrap', 'H|AppData\Local\Fishstrap',
         'H|AppData\Local\Programs\PrismLauncher', 'H|AppData\Roaming\PrismLauncher',
         'H|AppData\Roaming\ModrinthApp',
         'H|AppData\Local\Programs\lunarclient', 'H|.lunarclient',
         'H|AppData\Roaming\Vencord', 'H|AppData\Roaming\Vesktop',
-        'H|AppData\Roaming\BetterDiscord'
+        'H|AppData\Roaming\BetterDiscord',
+        'H|AppData\Roaming\Discord', 'H|AppData\Roaming\CurseForge',
+        'H|AppData\Local\Medal', 'H|AppData\Local\Programs\Medal', 'H|AppData\Roaming\Medal',
+        'H|AppData\Roaming\Playnite',
+        'H|AppData\Local\osulazer', 'H|AppData\Roaming\osu',
+        'H|AppData\Local\Plutonium', 'H|AppData\Local\Nox',
+        'P|BlueStacks_nxt', 'D|BlueStacks_nxt'
     )
     $roots = @{ H = $h; D = $d; P = $p; X = $x; C = 'C:\' }
     $directories = @($paths | ForEach-Object {
