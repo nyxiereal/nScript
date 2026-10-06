@@ -1,26 +1,27 @@
 # nScript
 
-A high-performance Go-based system cleanup tool for Windows 10/11 with concurrent operations.
+PowerShell 5.1 system cleanup for Windows 10/11. Normal mode removes old garbage and temporary files, cleans browser profiles, removes unwanted apps, and configures Firefox and Chrome with DuckDuckGo and ad blocking. Force mode deletes files and browser profiles without asking. **Review `nScript.ps1` before running either mode; cleanup cannot be undone.**
 
-## Features
-- removes old garbage files
-- cleans temporary files
-- removes browser profiles
-- removes apps that should not be there
-- configures Firefox and Chrome with ad blocking and DuckDuckGo
+## Run
 
-After browser cleanup, nScript applies policies for the signed-in Windows user (HKCU). Firefox force-installs uBlock Origin; Chrome force-installs uBlock Origin Lite. Both use DuckDuckGo as their homepage, startup page, and default search, and suppress first-run prompts. Firefox blocks `about:config` and its "Set As Desktop Background" command; Chrome disables new-tab background customization. Existing Windows desktop wallpaper settings are not changed.
+From Windows PowerShell:
 
-Extensions download on the next browser launch and require Internet access. Restart browsers to apply policies and inspect `about:policies` (Firefox) or `chrome://policy` (Chrome) for errors. This persistently replaces the listed HKCU settings (including Chrome's startup URL list), while preserving unrelated policies and forced extensions. Higher-priority machine/organization policies can override these per-user settings; this does not configure other Windows accounts. Firefox's default-search policy requires Firefox 139+ or ESR 60+; Chrome's promotion-suppression policy requires Chrome 128+. Normal mode leaves running browsers open, so restart them afterward.
-
-`get-vbox.ps1` (served at `/v` for existing deployments) downloads a portable x64 WinGet bundle before force cleanup as the signed-in Windows user, then requests UAC once to install Inkscape, GIMP 3, VS Code, Python 3.14, Notepad++, Orwell Dev-C++, Temurin 25 JDK (includes `javac`), PyCharm Community, Code::Blocks with MinGW, and IntelliJ IDEA Community. No App Installer registration is required; the release workflow packages WinGet from Microsoft's pinned v1.29.380 release and publishes `winget-portable.zip` alongside the script. The droppers stage `nScript.exe` in `%USERPROFILE%\.nScript` so force cleanup cannot delete the running executable from Temp; `/v` removes both the cleaner and portable WinGet afterward. Cleanup may leave admin-protected files behind; installer scope varies by package. Run `test-get-vbox.ps1` with PowerShell to check syntax and ordering.
-
-`get.cmd` and `get-force.cmd` are the same droppers for machines where PowerShell is blocked or restricted. They use only Microsoft-signed LOLBins from the [LOLBAS project](https://lolbas-project.github.io/): `curl.exe -fsSL` with a `certutil -urlcache -split -f` fallback for the download, and `cmd.exe` for the launch. They stage `nScript.exe` in `%USERPROFILE%\.nScript`, reject downloads smaller than 100 KB, and delete the executable afterward. All droppers download the binary from the `dist` branch artifact (`raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.exe`), so they do not depend on Vercel serving the executable.
-
-`/c` and `/fc` serve PowerShell bootstrappers around those batch files, so every route works with the usual one-liner, for example `powershell -NoProfile -Command "irm https://clean.meowery.eu/fc | iex"`. On a host without PowerShell, a Pico/Ducky types a single cmd line instead, fetching the batch file directly:
-
-```
-cmd /c mkdir "%USERPROFILE%\.nScript" 2>nul& certutil -urlcache -split -f https://clean.meowery.eu/get-force.cmd "%USERPROFILE%\.nScript\get-force.cmd" >nul& call "%USERPROFILE%\.nScript\get-force.cmd"& del "%USERPROFILE%\.nScript\get-force.cmd"
+```powershell
+irm https://clean.meowery.eu/ | iex       # normal
+irm https://clean.meowery.eu/f | iex      # force
+irm https://clean.meowery.eu/v | iex      # force + portable WinGet apps
+irm https://clean.meowery.eu/c | iex      # normal via get.cmd
+irm https://clean.meowery.eu/fc | iex     # force via get-force.cmd
 ```
 
-LOLBins only remove the PowerShell dependency; they do not bypass application control. Smart App Control validates the downloaded `nScript.exe` itself and still blocks it while it is unsigned, whichever signed binary launches it. Those machines need a signed build, or SAC turned off by an administrator.
+Or download `get.cmd` / `get-force.cmd` and run them from `cmd.exe`. Both batch launchers require Windows PowerShell 5.1. They do not bypass execution policy, application control, or UAC. If script execution is blocked, use a policy permitted by your administrator; these launchers do not pass `-ExecutionPolicy Bypass`.
+
+All launchers download the **real** `nScript.ps1` artifact from `https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.ps1`, stage it under `%USERPROFILE%\.nScript` outside the Temp cleanup target, and run it in a child `powershell.exe -NoProfile -File` process (with `-Force` for force routes). `/`, `/f`, `/v`, `/c`, and `/fc` remain PowerShell-text routes; direct `.ps1` URLs serve plain UTF-8 text. `/c` and `/fc` download the corresponding batch launcher and run it through `cmd.exe`. The old `/nScript.exe` route is retired: there was no live executable asset to serve. Use `/nScript.ps1` for the actual source artifact.
+
+`/v` downloads a pinned portable x64 WinGet bundle before force cleanup under the signed-in user's account, checks its SHA-256 and runs `winget --version`. After cleanup it requests UAC **once** to install Inkscape, GIMP 3, VS Code, Python 3.14, Notepad++, Orwell Dev-C++, Temurin 25 JDK, PyCharm Community, Code::Blocks with MinGW, and IntelliJ IDEA Community. The elevated process verifies a private copy of the archive before using it. No App Installer registration is required; the release workflow bundles WinGet from Microsoft's pinned v1.29.380 release and checks the archive hash. Installer scope varies by package; cleanup may leave admin-protected files behind.
+
+After browser cleanup, nScript applies policies for the signed-in Windows user (HKCU). Firefox force-installs uBlock Origin; Chrome force-installs uBlock Origin Lite. Both use DuckDuckGo as their homepage, startup page, and default search, and suppress first-run prompts. Firefox blocks `about:config` and its "Set As Desktop Background" command; Chrome disables new-tab background customization. Existing desktop wallpaper settings are unchanged. Extensions download on the next browser launch and need Internet access. Restart browsers to apply policies and check `about:policies` or `chrome://policy` for errors. These settings persist and replace listed HKCU values while preserving unrelated policies and forced extensions; machine/organization policies can override them. Firefox default search requires Firefox 139+ or ESR 60+; Chrome promotion suppression requires Chrome 128+.
+
+## Validate without running cleanup
+
+`pwsh -NoProfile -File ./test-get-vbox.ps1` checks the launchers, routes and release workflow statically. `pwsh -NoProfile -File ./test-nscript.ps1` checks the core script. The workflow also runs both plus `test-nscript-windows.ps1` under **Windows PowerShell 5.1** before publishing. `make` and `./build.fish` run safe checks only; there is no Go or EXE build.

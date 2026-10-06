@@ -1,23 +1,5 @@
 @echo off
-setlocal
-rem nScript dropper built from Microsoft-signed LOLBins (LOLBAS: Certutil download, Cmd execute).
-rem Stage outside Temp: force cleanup wipes Temp while the executable is running.
-set "WorkPath=%USERPROFILE%\.nScript"
-set "BinaryPath=%WorkPath%\nScript.exe"
-set "Url=https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.exe"
-
-mkdir "%WorkPath%" 2>nul
-
-echo [*] Downloading nScript.exe
-del /f /q "%BinaryPath%" 2>nul
-curl.exe -fsSL -o "%BinaryPath%" "%Url%" 2>nul || certutil -urlcache -split -f "%Url%" "%BinaryPath%" >nul 2>&1
-if not exist "%BinaryPath%" (echo [-] Download failed& exit /b 1)
-for %%A in ("%BinaryPath%") do if %%~zA LSS 100000 (echo [-] Download incomplete& exit /b 1)
-
-echo [*] Running nScript
-"%BinaryPath%"
-set "RC=%ERRORLEVEL%"
-
-del /f /q "%BinaryPath%" 2>nul
-echo [+] nScript finished with exit code %RC%
-exit /b %RC%
+setlocal DisableDelayedExpansion
+rem Run a fresh PowerShell 5.1 script outside Temp; never execute a partial or stale download.
+powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $r=Join-Path (Join-Path $env:USERPROFILE '.nScript') ([guid]::NewGuid().ToString('N')); [void](New-Item -ItemType Directory -Path $r -Force); try { $p=Join-Path $r 'nScript.ps1'; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.ps1' -OutFile $p -UseBasicParsing; if ((Get-Item -LiteralPath $p).Length -eq 0) { throw 'Empty download' }; & powershell.exe -NoProfile -File $p; exit $LASTEXITCODE } finally { Remove-Item -LiteralPath $r -Recurse -Force -ErrorAction SilentlyContinue }"
+exit /b %ERRORLEVEL%
