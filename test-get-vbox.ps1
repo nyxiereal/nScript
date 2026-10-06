@@ -1,7 +1,9 @@
 # Static-only tests: never import, dot-source, or execute a launcher or cleanup script.
 $ErrorActionPreference = 'Stop'
 $Base = $PSScriptRoot
-$Artifact = 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.ps1'
+$Artifact = 'https://clean.meowery.eu/nScript.ps1'
+$WingetUrl = 'https://clean.meowery.eu/winget-portable.zip'
+$WingetHash = '88536696deaa13ea7441df74a62dd782f8cac75e46a23407b63b7ce8d39989cc'
 
 function Require($Body, $Pattern, $Message) {
     if ($Body -notmatch $Pattern) { throw $Message }
@@ -22,12 +24,12 @@ foreach ($Name in $Scripts) {
     Require $Body '\.Length -eq 0' "$Name must reject an empty download"
     Require $Body 'finally\s*\{' "$Name must clean up on failure"
     Require $Body 'Remove-Item -LiteralPath \$RunPath|Remove-Item -LiteralPath \$WorkPath' "$Name must remove its stage"
-    if ($Body -match '\$env:TEMP|nScript\.exe|ExecutionPolicy Bypass') { throw "$Name contains a retired or unsafe launch path" }
+    if ($Body -match '\$env:TEMP|nScript\.exe|ExecutionPolicy Bypass|raw\.githubusercontent\.com|/dist/|/master/') { throw "$Name contains a retired or unsafe launch path" }
 }
 
 foreach ($Name in @('get.ps1', 'get-force.ps1', 'get-vbox.ps1')) {
     $Body = Get-Content -LiteralPath (Join-Path $Base $Name) -Raw
-    Require $Body ([regex]::Escape($Artifact)) "$Name must fetch the script artifact"
+    Require $Body ([regex]::Escape("-Uri '$Artifact' -OutFile")) "$Name must fetch the hosted cleaner"
     Require $Body '& powershell\.exe -NoProfile -File \$' "$Name must run cleanup in a child process"
     Require $Body '\$LASTEXITCODE -ne 0' "$Name must report child failures"
 }
@@ -36,6 +38,12 @@ $Force = Get-Content -LiteralPath (Join-Path $Base 'get-force.ps1') -Raw
 $VBox = Get-Content -LiteralPath (Join-Path $Base 'get-vbox.ps1') -Raw
 if ($Normal -match '-File \$ScriptPath -Force' -or $Force -notmatch '-File \$ScriptPath -Force' -or $VBox -notmatch '-File \$CleanerPath -Force') {
     throw 'Only force routes may pass -Force to the cleaner'
+}
+Require $VBox ([regex]::Escape("-Uri '$WingetUrl' -OutFile")) '/v must fetch the hosted WinGet bundle'
+Require $VBox ([regex]::Escape("`$ExpectedWingetHash = '$WingetHash'")) '/v must retain the pinned WinGet hash'
+$Bundle = Join-Path $Base 'winget-portable.zip'
+if ((Get-Item -LiteralPath $Bundle).Length -ne 16311484 -or (Get-FileHash -LiteralPath $Bundle -Algorithm SHA256).Hash -ne $WingetHash) {
+    throw 'Committed WinGet bundle differs from the pinned artifact'
 }
 $Steps = @('winget-portable.zip'' -OutFile', 'Get-FileHash -LiteralPath $WingetArchive', '& $WingetPath --version', '-File $CleanerPath -Force', '$Install = {', '-Verb RunAs')
 $Positions = @($Steps | ForEach-Object { $VBox.IndexOf($_) })
@@ -61,7 +69,8 @@ foreach ($Pair in @(@('get-cmd.ps1', 'get.cmd'), @('get-force-cmd.ps1', 'get-for
 }
 foreach ($Name in @('get.cmd', 'get-force.cmd')) {
     $Body = Get-Content -LiteralPath (Join-Path $Base $Name) -Raw
-    Require $Body ([regex]::Escape($Artifact)) "$Name must fetch the real script artifact"
+    Require $Body ([regex]::Escape("-Uri '$Artifact' -OutFile")) "$Name must fetch the hosted cleaner"
+    if ($Body -match 'raw\.githubusercontent\.com|/dist/|/master/') { throw "$Name must not fetch from GitHub branches" }
     Require $Body '\$env:USERPROFILE ''\.nScript''' "$Name must stage outside Temp"
     Require $Body 'NewGuid\(' "$Name must isolate downloads per run"
     Require $Body 'SecurityProtocol=\[Net.SecurityProtocolType\]::Tls12' "$Name must support TLS 1.2"
@@ -84,22 +93,48 @@ $ForceCmd = Get-Content -LiteralPath (Join-Path $Base 'get-force.cmd') -Raw
 if ($Cmd -match '-File \$p -Force' -or $ForceCmd -notmatch '-File \$p -Force') { throw 'Only get-force.cmd may pass -Force' }
 
 $Manifest = Get-Content -LiteralPath (Join-Path $Base 'vercel.json') -Raw | ConvertFrom-Json
+if (-not $Manifest.PSObject.Properties['framework'] -or $null -ne $Manifest.framework -or
+    $Manifest.buildCommand -cne '' -or $Manifest.outputDirectory -ne '.') {
+    throw 'Vercel must serve the project root as static assets without a build'
+}
 $Routes = @{ '/' = '/get.ps1'; '/f' = '/get-force.ps1'; '/v' = '/get-vbox.ps1'; '/c' = '/get-cmd.ps1'; '/fc' = '/get-force-cmd.ps1' }
+if (@($Manifest.rewrites).Count -ne $Routes.Count) { throw 'Only the five launcher routes should be rewritten' }
 foreach ($Route in $Routes.Keys) {
+    if (-not (Test-Path -LiteralPath (Join-Path $Base $Routes[$Route].TrimStart('/')) -PathType Leaf)) { throw "Missing route body: $Route" }
     $Rewrite = @($Manifest.rewrites | Where-Object source -eq $Route)
     if ($Rewrite.Count -ne 1 -or $Rewrite[0].destination -ne $Routes[$Route]) { throw "Incorrect rewrite for $Route" }
 }
-if (@($Manifest.rewrites | Where-Object source -eq '/nScript.exe').Count) { throw 'Do not map a fake executable route' }
+if (-not (Test-Path -LiteralPath (Join-Path $Base 'nScript.ps1') -PathType Leaf)) { throw 'Missing public cleaner' }
 foreach ($Route in @($Routes.Keys) + @('/get.ps1', '/get-force.ps1', '/get-vbox.ps1', '/get-cmd.ps1', '/get-force-cmd.ps1', '/nScript.ps1')) {
     $Header = @($Manifest.headers | Where-Object source -eq $Route | ForEach-Object { $_.headers } | Where-Object key -eq 'Content-Type')
     if ($Header.Count -ne 1 -or $Header[0].value -ne 'text/plain; charset=utf-8') { throw "$Route must serve plain UTF-8 text" }
 }
-$Workflow = Get-Content -LiteralPath (Join-Path $Base '.github/workflows/build.yml') -Raw
-foreach ($Needle in @('nScript.ps1', 'winget-portable.zip', 'v1.29.380', 'sha256sum -c -', 'get-vbox.ps1 | head -1', 'shell: powershell', 'test-get-vbox.ps1', 'test-nscript.ps1', 'test-nscript-windows.ps1')) {
-    Require $Workflow ([regex]::Escape($Needle)) "Workflow missing $Needle"
+foreach ($Name in @('get.cmd', 'get-force.cmd')) {
+    $Headers = @($Manifest.headers | Where-Object source -eq "/$Name" | ForEach-Object { $_.headers })
+    if (@($Headers | Where-Object { $_.key -eq 'Content-Type' -and $_.value -eq 'text/plain; charset=utf-8' }).Count -ne 1 -or
+        @($Headers | Where-Object { $_.key -eq 'Content-Disposition' -and $_.value -eq "attachment; filename=`"$Name`"" }).Count -ne 1) {
+        throw "$Name must be downloadable as a batch file"
+    }
 }
-if ($Workflow -match 'go build|setup-go|nScript\.exe|(?m)^\s*(?:\./|\.\\)(?:get(?:-force|-vbox|-cmd|-force-cmd)?|nScript)\.ps1\s*$') {
-    throw 'Workflow must never build an EXE or execute cleanup'
+$ZipHeaders = @($Manifest.headers | Where-Object source -eq '/winget-portable.zip' | ForEach-Object { $_.headers })
+if (@($ZipHeaders | Where-Object { $_.key -eq 'Content-Type' -and $_.value -eq 'application/zip' }).Count -ne 1) { throw 'WinGet must be served as a ZIP' }
+$Ignored = Get-Content -LiteralPath (Join-Path $Base '.vercelignore') -Raw
+foreach ($Pattern in @('(?m)^test-\*\.ps1\s*$', '(?m)^readme\.md\s*$', '(?m)^docs/\s*$', '(?m)^\.github\s*$')) {
+    Require $Ignored $Pattern 'Tests, docs and CI must stay private on Vercel'
+}
+if ($Ignored -match '(?m)^\s*(?:\*\.ps1|nScript\.ps1|\*\.zip|winget-portable\.zip)\s*$') { throw 'Cleaner and bundle must stay public' }
+$Gitignore = Get-Content -LiteralPath (Join-Path $Base '.gitignore') -Raw
+Require $Gitignore '(?m)^!/winget-portable\.zip\s*$' 'Only the pinned ZIP must bypass *.zip gitignore'
+if (Test-Path -LiteralPath (Join-Path $Base '.github/workflows/build.yml')) { throw 'Release workflow must be removed' }
+$Workflow = Get-Content -LiteralPath (Join-Path $Base '.github/workflows/validate.yml') -Raw
+foreach ($Pattern in @('(?m)^on:\s*$', '(?m)^\s+push:\s*$', '(?m)^\s+branches: \[master\]\s*$', '(?m)^\s+pull_request:\s*$', '(?m)^\s+workflow_dispatch:\s*$', '(?m)^permissions:\s*$', '(?m)^\s+contents: read\s*$', 'runs-on: ubuntu-latest', 'shell: pwsh', 'runs-on: windows-latest', 'shell: powershell', 'Expand-Archive winget-portable.zip winget-portable', 'winget.exe --version', 'search --id Microsoft.PowerToys --exact')) {
+    Require $Workflow $Pattern "Validation workflow missing $Pattern"
+}
+foreach ($Name in @('test-get-vbox.ps1', 'test-nscript.ps1', 'test-nscript-windows.ps1')) {
+    if (([regex]::Matches($Workflow, [regex]::Escape("./$Name"))).Count -ne 2) { throw "Both OS jobs must run $Name" }
+}
+if ($Workflow -match 'upload-artifact|download-artifact|go build|setup-go|nScript\.exe|git push|git checkout|curl|(?m)^\s*(?:build|publish|release|deploy):|(?m)^\s*(?:\./|\.\\)(?:get(?:-force|-vbox|-cmd|-force-cmd)?|nScript)\.ps1\s*$') {
+    throw 'Workflow must only validate tracked assets; never build, publish or execute cleanup'
 }
 foreach ($BuildFile in @('Makefile', 'build.fish')) {
     $Body = Get-Content -LiteralPath (Join-Path $Base $BuildFile) -Raw
@@ -107,4 +142,4 @@ foreach ($BuildFile in @('Makefile', 'build.fish')) {
     Require $Body 'test-nscript\.ps1' "$BuildFile must validate the core"
     if ($Body -match 'go build|go mod|nScript\.exe|\.\/nScript\.ps1') { throw "$BuildFile must not build or execute cleanup" }
 }
-Write-Host 'Launcher, route and release checks passed (static only).'
+Write-Host 'Launcher, static deployment and CI checks passed (static only).'

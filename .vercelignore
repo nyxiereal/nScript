@@ -1,13 +1,15 @@
-# Development-only files (nScript.ps1 is the distribution artifact)
+# Keep development files private; serve the cleaner and pinned WinGet bundle.
 test-*.ps1
 Makefile
 build.fish
 readme.md
+docs/
 
-# Git
+# Git and deployment configuration
 .git
 .github
 .gitignore
+.vercelignore
 
 # System files
 System Volume Information

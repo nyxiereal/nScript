@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": ".",
   "rewrites": [
     { "source": "/", "destination": "/get.ps1" },
     { "source": "/f", "destination": "/get-force.ps1" },
@@ -18,6 +21,9 @@
     { "source": "/get-vbox.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
     { "source": "/get-cmd.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
     { "source": "/get-force-cmd.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
-    { "source": "/nScript.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] }
+    { "source": "/nScript.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
+    { "source": "/get.cmd", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }, { "key": "Content-Disposition", "value": "attachment; filename=\"get.cmd\"" }] },
+    { "source": "/get-force.cmd", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }, { "key": "Content-Disposition", "value": "attachment; filename=\"get-force.cmd\"" }] },
+    { "source": "/winget-portable.zip", "headers": [{ "key": "Content-Type", "value": "application/zip" }] }
   ]
 }
