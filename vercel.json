@@ -14,6 +14,14 @@
       "destination": "/get-vbox.ps1"
     },
     {
+      "source": "/c",
+      "destination": "/get.cmd"
+    },
+    {
+      "source": "/fc",
+      "destination": "/get-force.cmd"
+    },
+    {
       "source": "/nScript.exe",
       "destination": "/nScript.exe"
     }
