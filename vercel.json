@@ -15,15 +15,37 @@
     },
     {
       "source": "/c",
-      "destination": "/get.cmd"
+      "destination": "/get-cmd.ps1"
     },
     {
       "source": "/fc",
-      "destination": "/get-force.cmd"
+      "destination": "/get-force-cmd.ps1"
     },
     {
       "source": "/nScript.exe",
       "destination": "/nScript.exe"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/f",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/v",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/c",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/fc",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
     }
   ]
 }

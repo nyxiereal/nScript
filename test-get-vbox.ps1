@@ -53,3 +53,31 @@ if ((Get-Content (Join-Path $PSScriptRoot 'get.cmd') -Raw) -match '--force' -or
     (Get-Content (Join-Path $PSScriptRoot 'get-force.cmd') -Raw) -notmatch '"%BinaryPath%" --force') {
     throw 'Only get-force.cmd may pass force mode'
 }
+
+$Manifest = Get-Content (Join-Path $PSScriptRoot 'vercel.json') -Raw | ConvertFrom-Json
+$Shims = @{ 'get-cmd.ps1' = 'get.cmd'; 'get-force-cmd.ps1' = 'get-force.cmd' }
+foreach ($Shim in $Shims.GetEnumerator()) {
+    $ShimPath = Join-Path $PSScriptRoot $Shim.Key
+    $Tokens = $null
+    $Errors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile($ShimPath, [ref]$Tokens, [ref]$Errors) | Out-Null
+    if ($Errors.Count) { throw "$($Shim.Key) has syntax errors: $Errors" }
+    $Body = Get-Content $ShimPath -Raw
+    if ($Body -notmatch [regex]::Escape("https://clean.meowery.eu/$($Shim.Value)")) {
+        throw "$($Shim.Key) must bootstrap $($Shim.Value)"
+    }
+    if ($Body -notmatch 'Invoke-WebRequest' -or $Body -notmatch 'cmd\.exe /c' -or $Body -notmatch 'Remove-Item') {
+        throw "$($Shim.Key) must fetch the batch launcher, run it through cmd.exe, and clean up"
+    }
+}
+foreach ($Route in @(@('/c', '/get-cmd.ps1'), @('/fc', '/get-force-cmd.ps1'))) {
+    if (($Manifest.rewrites | Where-Object source -eq $Route[0]).destination -ne $Route[1]) {
+        throw "$($Route[0]) must serve $($Route[1])"
+    }
+}
+foreach ($Route in @('/', '/f', '/v', '/c', '/fc')) {
+    $Header = @($Manifest.headers | Where-Object source -eq $Route | ForEach-Object { $_.headers } | Where-Object key -eq 'Content-Type')
+    if ($Header.Count -ne 1 -or $Header[0].value -notmatch '^text/plain') {
+        throw "$Route must be served as text/plain so irm | iex can read it"
+    }
+}
