@@ -47,14 +47,3 @@ echo ""
 echo "Usage:"
 echo "  Normal Mode:  .\\$BINARY_NAME"
 echo "  Force Mode:   .\\$BINARY_NAME --force"
-
-# Optional compression using UPX (if installed)
-if type -q upx
-    echo "[*] UPX detected; compressing $BINARY_NAME..."
-    # Best compression with LZMA (may take a while and some AV engines may flag the binary)
-    upx --best --lzma $BINARY_NAME || echo "[-] UPX failed; binary left uncompressed"
-    set compressed_size (du -h $BINARY_NAME | cut -f1)
-    echo "[*] $BINARY_NAME compressed size: $compressed_size"
-else
-    echo "[*] UPX not found; install upx to enable binary compression (optional)"
-end

@@ -30,15 +30,6 @@ jobs:
                   env GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
                     go build -trimpath -ldflags="-s -w" -o $BINARY_NAME main.go
 
-            - name: Install UPX
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y upx || echo "UPX not available"
-
-            - name: Compress binary with UPX
-              run: |
-                  if [ -f nScript.exe ]; then upx --best --lzma nScript.exe; fi
-
             - name: Bundle portable WinGet x64
               run: |
                   # Same extracted CLI/runtime layout UniGetUI uses, from Microsoft's signed release.
