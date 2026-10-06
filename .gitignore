@@ -22,6 +22,7 @@ go.work
 /build/
 /bin/
 *.zip
+!/winget-portable.zip
 *.tar.gz
 *.tar.bz2
 

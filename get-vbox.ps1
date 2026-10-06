@@ -1,16 +1,17 @@
 $ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Keep cleanup under the signed-in user's account, before the single UAC prompt.
 # Stage WinGet outside cleanup targets; the elevated account gets a verified private copy.
-$WorkPath = Join-Path $env:USERPROFILE '.nScript'
-$CleanerPath = Join-Path $WorkPath 'nScript.exe'
+$WorkPath = Join-Path (Join-Path $env:USERPROFILE '.nScript') ([guid]::NewGuid().ToString('N'))
+$CleanerPath = Join-Path $WorkPath 'nScript.ps1'
 $WingetPath = Join-Path $WorkPath 'winget-portable\winget.exe'
 $WingetArchive = Join-Path $WorkPath 'winget-portable.zip'
 $ExpectedWingetHash = '88536696deaa13ea7441df74a62dd782f8cac75e46a23407b63b7ce8d39989cc'
 New-Item -ItemType Directory -Path $WorkPath -Force | Out-Null
 
 try {
-    Start-BitsTransfer -Source 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/winget-portable.zip' -Destination $WingetArchive
+    Invoke-WebRequest -Uri 'https://clean.meowery.eu/winget-portable.zip' -OutFile $WingetArchive -UseBasicParsing
     if ((Get-FileHash -LiteralPath $WingetArchive -Algorithm SHA256).Hash -ne $ExpectedWingetHash) {
         throw 'Portable WinGet download failed integrity check; cleanup was not run.'
     }
@@ -19,8 +20,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Portable WinGet failed to start; cleanup was not run.' }
 
     Write-Host '[!] Force cleanup will delete files and browser profiles before installing apps.'
-    Start-BitsTransfer -Source 'https://raw.githubusercontent.com/nyxiereal/nScript/dist/nScript.exe' -Destination $CleanerPath
-    & $CleanerPath --force
+    Invoke-WebRequest -Uri 'https://clean.meowery.eu/nScript.ps1' -OutFile $CleanerPath -UseBasicParsing
+    if ((Get-Item -LiteralPath $CleanerPath).Length -eq 0) { throw 'nScript download is empty.' }
+    & powershell.exe -NoProfile -File $CleanerPath -Force
     if ($LASTEXITCODE -ne 0) { throw "nScript exited with code $LASTEXITCODE" }
 
     # Encode the install commands because this script can be run via Invoke-Expression (no script path).
@@ -70,6 +72,5 @@ try {
     Write-Host 'App installation completed.'
 }
 finally {
-    Remove-Item -LiteralPath $CleanerPath, $WingetArchive -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath (Split-Path $WingetPath) -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $WorkPath -Recurse -Force -ErrorAction SilentlyContinue
 }
