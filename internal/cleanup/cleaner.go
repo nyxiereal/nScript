@@ -45,6 +45,16 @@ func (c *Cleaner) GetStats() *Stats {
 	return c.stats
 }
 
+func isProtectedDirectory(path string) bool {
+	for _, component := range strings.Split(filepath.Clean(path), string(filepath.Separator)) {
+		name := strings.ToLower(component)
+		if strings.HasPrefix(name, "gt works3") || strings.HasPrefix(name, "gx works3") {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidatePath ensures a path is safe to operate on.
 func (c *Cleaner) ValidatePath(path string) error {
 	if path == "" {
@@ -54,6 +64,9 @@ func (c *Cleaner) ValidatePath(path string) error {
 	cleanPath := filepath.Clean(path)
 	if !filepath.IsAbs(cleanPath) {
 		return fmt.Errorf("path must be absolute: %s", path)
+	}
+	if isProtectedDirectory(cleanPath) {
+		return fmt.Errorf("cannot operate on protected directory: %s", path)
 	}
 
 	criticalPaths := []string{
@@ -73,10 +86,13 @@ func (c *Cleaner) ValidatePath(path string) error {
 	return nil
 }
 
-var allowedDeletionKeywords = []string{"roblox", "paradox", "opera", "discord", "osu", "steam", "epic games"}
+var allowedDeletionKeywords = []string{"roblox", "y8 browser", "y8-browser", "y8browser", "paradox", "opera", "discord", "osu", "steam", "epic games"}
 
 // ShouldExclude checks if a file should be excluded based on extension and keywords.
 func (c *Cleaner) ShouldExclude(path string, excludedExts []string) bool {
+	if isProtectedDirectory(filepath.Dir(path)) {
+		return true
+	}
 	ext := strings.ToLower(filepath.Ext(path))
 	for _, excluded := range excludedExts {
 		if ext != excluded {
@@ -202,6 +218,10 @@ func (c *Cleaner) processDirectoryStreaming(root string, olderThan time.Duration
 			return nil
 		}
 		if entry.IsDir() {
+			if isProtectedDirectory(path) {
+				c.stats.SkippedFiles.Add(1)
+				return fs.SkipDir
+			}
 			directories = append(directories, path)
 			return nil
 		}
