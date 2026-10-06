@@ -147,6 +147,13 @@ function Test-NsExcludedFile {
     return $true
 }
 
+function Test-NsEligibleFile {
+    param([string]$Path, [string[]]$ExcludedExtensions, [datetime]$LastWriteTime,
+          [datetime]$Cutoff, [bool]$ForceMode)
+    if (Test-NsExcludedFile $Path $ExcludedExtensions) { return $false }
+    return ($ForceMode -or $LastWriteTime -lt $Cutoff)
+}
+
 function Assert-NsSafePath {
     param([string]$Path)
     if ([string]::IsNullOrWhiteSpace($Path) -or -not [IO.Path]::IsPathRooted($Path) -or
@@ -173,7 +180,7 @@ function Assert-NsSafePath {
 
 function Invoke-NsWalk {
     param([string]$Path, [hashtable]$Stats, [switch]$Unconditional,
-          [switch]$KeepRoot, [datetime]$Cutoff, [string[]]$ExcludedExtensions)
+          [switch]$IgnoreAge, [switch]$KeepRoot, [datetime]$Cutoff, [string[]]$ExcludedExtensions)
     if ((Test-NsProtectedPath $Path) -or (Test-NsCriticalPath $Path)) {
         $Stats.SkippedFiles++; return
     }
@@ -184,8 +191,9 @@ function Invoke-NsWalk {
     }
     if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { $Stats.SkippedFiles++; return }
     if (-not $item.PSIsContainer) {
-        if (-not $Unconditional -and ((Test-NsExcludedFile $Path $ExcludedExtensions) -or
-            $item.LastWriteTime -gt $Cutoff)) { $Stats.SkippedFiles++; return }
+        if (-not $Unconditional -and -not (Test-NsEligibleFile -Path $Path `
+            -ExcludedExtensions $ExcludedExtensions -LastWriteTime $item.LastWriteTime `
+            -Cutoff $Cutoff -ForceMode $IgnoreAge)) { $Stats.SkippedFiles++; return }
         try { [IO.File]::Delete($Path); $Stats.DeletedFiles++ }
         catch { $Stats.FailedFiles++; throw }
         return
@@ -196,7 +204,7 @@ function Invoke-NsWalk {
     foreach ($child in $children) {
         try {
             Invoke-NsWalk -Path $child.FullName -Stats $Stats -Unconditional:$Unconditional `
-                -Cutoff $Cutoff -ExcludedExtensions $ExcludedExtensions
+                -IgnoreAge:$IgnoreAge -Cutoff $Cutoff -ExcludedExtensions $ExcludedExtensions
         } catch { $failures += $_ }
     }
     if (-not $KeepRoot -and $failures.Count -eq 0) {
@@ -223,7 +231,7 @@ function Invoke-NsFileCleanup {
     foreach ($path in $Config.UserDirectories) {
         try {
             Assert-NsSafePath $path
-            Invoke-NsWalk -Path $path -Stats $Stats -KeepRoot -Unconditional:$ForceMode `
+            Invoke-NsWalk -Path $path -Stats $Stats -KeepRoot -IgnoreAge:$ForceMode `
                 -Cutoff $cutoff -ExcludedExtensions $Config.ExcludedExtensions
         } catch { Write-Warning "Directory cleanup $path`: $_" }
     }
@@ -273,6 +281,10 @@ function Invoke-NsBrowserCleanup {
 function Invoke-NsCleanup {
     param([bool]$ForceMode)
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'nScript only runs on Windows' }
+    # Phase 3 is integrated into this file by the Windows helper lane; never clean partially without it.
+    if (-not (Get-Command Invoke-NsWindowsCleanup -CommandType Function -ErrorAction SilentlyContinue)) {
+        throw 'Invoke-NsWindowsCleanup is missing; integrate the Windows helper before running nScript'
+    }
     $variables = @{
         UserProfile = $env:USERPROFILE; ProgramData = $env:ProgramData
         ProgramFiles = $env:ProgramFiles; ProgramFilesX86 = ${env:ProgramFiles(x86)}
@@ -312,8 +324,7 @@ function Invoke-NsCleanup {
                 $total, ($total - $free), (100 * (1 - $free / $total)), $free, (100 * $free / $total))
         }
     } catch { Write-Warning "Disk information: $_" }
-    Write-Host "[*] Registry backups created in: $($config.BackupDirectory)"
-    Write-Host '[*] You can restore registry keys from backups if needed'
+    Write-Host "[*] Registry backup location: $($config.BackupDirectory)"
     Write-Host '[*] Made by Nyx :3 https://nyx.meowery.eu/'
 }
 

@@ -1,10 +1,14 @@
-﻿# Safe on any host: parse the cleaner, then load ONLY four pure selectors/config functions.
+﻿# Safe on any host: parse the cleaner, then load ONLY pure selectors/config functions.
 $tokens = $null
 $errors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot 'nScript.ps1'), [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw "nScript.ps1 syntax errors: $errors" }
-$allowed = @('New-NsConfig', 'Test-NsProtectedPath', 'Test-NsCriticalPath', 'Test-NsExcludedFile')
+$source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'nScript.ps1'))
+if ($source -notmatch '-KeepRoot -IgnoreAge:\$ForceMode' -or $source -match '-Unconditional:\$ForceMode') {
+    throw 'General force cleanup must bypass age, not extension exclusions'
+}
+$allowed = @('New-NsConfig', 'Test-NsProtectedPath', 'Test-NsCriticalPath', 'Test-NsExcludedFile', 'Test-NsEligibleFile')
 foreach ($name in $allowed) {
     $definitions = @($ast.EndBlock.Statements | Where-Object {
         $_ -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -eq $name
@@ -23,6 +27,14 @@ Assert (Test-NsExcludedFile 'C:\foo\random.lnk' @('.iso', '.lnk')) 'Shortcut exc
 Assert (-not (Test-NsExcludedFile 'C:\foo\Discord.lnk' @('.iso', '.lnk'))) 'Named shortcut exception'
 Assert (-not (Test-NsExcludedFile 'C:\foo\roblox.ISO' @('.iso', '.lnk'))) 'Named ISO exception'
 Assert (-not (Test-NsExcludedFile 'C:\foo\new.txt' @('.iso', '.lnk'))) 'Unexcluded file'
+$cutoff = [datetime]'2024-01-02'
+$excluded = @('.iso', '.lnk')
+Assert (-not (Test-NsEligibleFile 'C:\foo\archive.iso' $excluded ($cutoff.AddDays(-3)) $cutoff $true)) 'Force preserves excluded ISO'
+Assert (-not (Test-NsEligibleFile 'C:\foo\other.lnk' $excluded ($cutoff.AddDays(-3)) $cutoff $true)) 'Force preserves excluded shortcut'
+Assert (Test-NsEligibleFile 'C:\foo\Discord.lnk' $excluded $cutoff $cutoff $true) 'Force retains named exceptions'
+Assert (Test-NsEligibleFile 'C:\foo\young.txt' $excluded $cutoff $cutoff $true) 'Force bypasses age'
+Assert (-not (Test-NsEligibleFile 'C:\foo\young.txt' $excluded $cutoff $cutoff $false)) 'Normal mode keeps young files'
+Assert (Test-NsEligibleFile 'C:\foo\old.txt' $excluded ($cutoff.AddDays(-3)) $cutoff $false) 'Normal mode removes old files'
 $config = New-NsConfig -UserProfile 'H:\Profile' -ProgramData 'D:\Data' `
     -ProgramFiles 'P:\Files' -ProgramFilesX86 'X:\Files' -AppData 'H:\Roaming' `
     -LocalAppData 'H:\Local' -Temp 'H:\Temp' -WindowsDirectory 'C:\Windows'
