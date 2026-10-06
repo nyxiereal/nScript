@@ -35,12 +35,18 @@ foreach ($Dropper in @('get.ps1', 'get-force.ps1', 'get-vbox.ps1')) {
     if ($Body -notmatch '\$env:USERPROFILE\s+[''\"]\.nScript[''\"]' -or $Body -match '\$env:TEMP\b') {
         throw "$Dropper must stage the executable outside the Temp cleanup target"
     }
+    if ($Body -notmatch 'raw\.githubusercontent\.com/nyxiereal/nScript/dist/nScript\.exe') {
+        throw "$Dropper must download the artifact from the dist branch"
+    }
 }
 
 foreach ($Dropper in @('get.cmd', 'get-force.cmd')) {
     $Body = Get-Content (Join-Path $PSScriptRoot $Dropper) -Raw
     if ($Body -notmatch '%USERPROFILE%\\\.nScript' -or $Body -match '%TEMP%|%TMP%') {
         throw "$Dropper must stage the executable outside the Temp cleanup target"
+    }
+    if ($Body -notmatch 'raw\.githubusercontent\.com/nyxiereal/nScript/dist/nScript\.exe') {
+        throw "$Dropper must download the artifact from the dist branch"
     }
     if ($Body -notmatch 'curl\.exe -fsSL' -or $Body -notmatch 'certutil -urlcache -split -f' -or $Body -notmatch 'LSS 100000') {
         throw "$Dropper must use the LOLBin downloaders and reject partial downloads"
