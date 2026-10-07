@@ -6,7 +6,7 @@ try { & node build.mjs; if ($LASTEXITCODE -ne 0) { throw 'Static build failed' }
 finally { Pop-Location }
 
 $Param = 'param([switch]$Force, [switch]$InstallApps)'
-$Source = [IO.File]::ReadAllText((Join-Path $Base 'nScript.ps1'))
+$Source = [IO.File]::ReadAllText((Join-Path $Base 'nScript.ps1')).TrimStart([char]0xfeff)
 if ($Source.Split(@($Param), [StringSplitOptions]::None).Count -ne 2) { throw 'Expected one parameter declaration' }
 $Variants = @{
     'nScript.ps1' = $Source
@@ -17,6 +17,9 @@ foreach ($Name in $Variants.Keys) {
     $Path = Join-Path (Join-Path $Base 'public') $Name
     $Body = [IO.File]::ReadAllText($Path)
     if ($Body -cne $Variants[$Name]) { throw "$Name must be built from the single source without other changes" }
+    if ($Body[0] -ne '#') { throw "$Name must start without a BOM for irm | iex" }
+    # Evaluate only the first line, never the actual cleaner/installer.
+    if ((Invoke-Expression (($Body -split '\r?\n', 2)[0] + "`n42")) -ne 42) { throw "$Name has an invalid inline header" }
     $Tokens = $null; $Errors = $null
     [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$Tokens, [ref]$Errors) | Out-Null
     if ($Errors.Count) { throw "$Name has syntax errors: $Errors" }

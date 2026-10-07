@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
-const source = readFileSync('nScript.ps1', 'utf8');
+const source = readFileSync('nScript.ps1', 'utf8').replace(/^\uFEFF/, '');
 const param = 'param([switch]$Force, [switch]$InstallApps)';
 if (source.split(param).length !== 2) throw new Error('Unexpected nScript.ps1 parameter declaration');
 mkdirSync('public', { recursive: true });
