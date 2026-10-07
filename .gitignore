@@ -18,6 +18,7 @@ coverage.html
 go.work
 
 # Build artifacts
+/public/
 /dist/
 /build/
 /bin/

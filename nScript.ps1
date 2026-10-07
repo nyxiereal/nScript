@@ -1,9 +1,9 @@
 ﻿#Requires -Version 5.1
-param([switch]$Force)
+param([switch]$Force, [switch]$InstallApps)
 
 $ErrorActionPreference = 'Stop'
 
-# One self-contained artifact; nothing is downloaded by the cleaner itself.
+# One self-contained script per route; only /v downloads the pinned WinGet ZIP.
 function New-NsConfig {
     param([string]$UserProfile, [string]$ProgramData, [string]$ProgramFiles,
           [string]$ProgramFilesX86, [string]$AppData, [string]$LocalAppData,
@@ -626,6 +626,55 @@ function Invoke-NsWindowsCleanup {
     if ($Stats.FailedFiles -gt $failures) { throw "Windows cleanup completed with $($Stats.FailedFiles - $failures) failures" }
 }
 
+function Invoke-NsInstallApps {
+    param([string]$WingetArchive, [string]$ExpectedWingetHash)
+
+    # Only installation is elevated. Never execute a student-writable WinGet copy as administrator.
+    $Install = {
+        $ErrorActionPreference = 'Stop'
+        $TrustedPath = Join-Path $env:ProgramFiles ('nScript-winget-' + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $TrustedPath | Out-Null
+        try {
+            $TrustedArchive = Join-Path $TrustedPath 'winget.zip'
+            Copy-Item -LiteralPath $WingetArchive -Destination $TrustedArchive
+            if ((Get-FileHash -LiteralPath $TrustedArchive -Algorithm SHA256).Hash -ne $ExpectedWingetHash) {
+                throw 'Portable WinGet archive changed before elevation.'
+            }
+            Expand-Archive -LiteralPath $TrustedArchive -DestinationPath $TrustedPath
+            $WingetPath = Join-Path $TrustedPath 'winget.exe'
+            $Failed = @()
+            foreach ($Id in @(
+                'Inkscape.Inkscape',
+                'GIMP.GIMP.3',
+                'Microsoft.VisualStudioCode',
+                'Python.Python.3.14',
+                'Notepad++.Notepad++',
+                'Orwell.Dev-C++',
+                'EclipseAdoptium.Temurin.25.JDK',
+                'JetBrains.PyCharm.Community',
+                'CodeBlocks.CodeBlocks.MinGW',
+                'JetBrains.IntelliJIDEA.Community'
+            )) {
+                $Options = @('install', '--id', $Id, '--exact', '--source', 'winget', '--silent', '--disable-interactivity', '--accept-source-agreements', '--accept-package-agreements')
+                # GIMP's WinGet manifest does not declare a scope; the others support machine installs.
+                if ($Id -ne 'GIMP.GIMP.3') { $Options += @('--scope', 'machine') }
+                & $WingetPath @Options
+                if ($LASTEXITCODE -ne 0) { $Failed += "$Id ($LASTEXITCODE)" }
+            }
+            if ($Failed.Count) { throw "WinGet failed to install: $($Failed -join ', ')" }
+        }
+        finally {
+            Remove-Item -LiteralPath $TrustedPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    $PathLiteral = "'" + $WingetArchive.Replace("'", "''") + "'"
+    $Setup = "`$WingetArchive = $PathLiteral`n`$ExpectedWingetHash = '$ExpectedWingetHash'`n"
+    $Encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Setup + $Install.ToString()))
+    $Process = Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList "-NoProfile -EncodedCommand $Encoded" -Wait -PassThru
+    if ($Process.ExitCode -ne 0) { throw 'One or more app installs failed. Check the elevated PowerShell window or WinGet logs.' }
+    Write-Host 'App installation completed.'
+}
+
 function Invoke-NsCleanup {
     param([bool]$ForceMode)
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'nScript only runs on Windows' }
@@ -679,5 +728,29 @@ function Invoke-NsCleanup {
 }
 
 if ($args.Count -gt 1 -or ($args.Count -eq 1 -and $args[0] -ne '--force') -or
-    ($Force -and $args.Count)) { throw 'Usage: nScript.ps1 [-Force | --force]' }
-Invoke-NsCleanup -ForceMode ($Force -or $args.Count -eq 1)
+    ($Force -and $args.Count)) { throw 'Usage: nScript.ps1 [-Force | --force] [-InstallApps]' }
+if ($InstallApps) {
+    if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'nScript only runs on Windows' }
+    if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) { throw 'USERPROFILE environment variable not set' }
+    Assert-NsSafePath $env:USERPROFILE
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $WorkPath = Join-Path (Join-Path $env:USERPROFILE '.nScript') ([guid]::NewGuid().ToString('N'))
+    $WingetArchive = Join-Path $WorkPath 'winget-portable.zip'
+    $WingetPath = Join-Path $WorkPath 'winget-portable\winget.exe'
+    $ExpectedWingetHash = '88536696deaa13ea7441df74a62dd782f8cac75e46a23407b63b7ce8d39989cc'
+    New-Item -ItemType Directory -Path $WorkPath -Force | Out-Null
+    try {
+        Invoke-WebRequest -Uri 'https://clean.meowery.eu/winget-portable.zip' -OutFile $WingetArchive -UseBasicParsing
+        if ((Get-FileHash -LiteralPath $WingetArchive -Algorithm SHA256).Hash -ne $ExpectedWingetHash) {
+            throw 'Portable WinGet download failed integrity check; cleanup was not run.'
+        }
+        Expand-Archive -LiteralPath $WingetArchive -DestinationPath (Split-Path $WingetPath) -Force
+        & $WingetPath --version
+        if ($LASTEXITCODE -ne 0) { throw 'Portable WinGet failed to start; cleanup was not run.' }
+        Write-Host '[!] Force cleanup will delete files and browser profiles before installing apps.'
+        Invoke-NsCleanup -ForceMode $true
+        Invoke-NsInstallApps -WingetArchive $WingetArchive -ExpectedWingetHash $ExpectedWingetHash
+    }
+    finally { Remove-Item -LiteralPath $WorkPath -Recurse -Force -ErrorAction SilentlyContinue }
+}
+else { Invoke-NsCleanup -ForceMode ($Force -or $args.Count -eq 1) }

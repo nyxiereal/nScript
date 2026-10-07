@@ -1,14 +1,19 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "",
-  "outputDirectory": ".",
+  "buildCommand": "node build.mjs",
+  "outputDirectory": "public",
   "rewrites": [
-    { "source": "/", "destination": "/get.ps1" },
-    { "source": "/f", "destination": "/get-force.ps1" },
-    { "source": "/v", "destination": "/get-vbox.ps1" },
-    { "source": "/c", "destination": "/get-cmd.ps1" },
-    { "source": "/fc", "destination": "/get-force-cmd.ps1" }
+    { "source": "/", "destination": "/nScript.ps1" },
+    { "source": "/f", "destination": "/force.ps1" },
+    { "source": "/v", "destination": "/install.ps1" },
+    { "source": "/c", "destination": "/nScript.ps1" },
+    { "source": "/fc", "destination": "/force.ps1" },
+    { "source": "/get.ps1", "destination": "/nScript.ps1" },
+    { "source": "/get-force.ps1", "destination": "/force.ps1" },
+    { "source": "/get-vbox.ps1", "destination": "/install.ps1" },
+    { "source": "/get-cmd.ps1", "destination": "/nScript.ps1" },
+    { "source": "/get-force-cmd.ps1", "destination": "/force.ps1" }
   ],
   "headers": [
     { "source": "/", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
@@ -22,8 +27,8 @@
     { "source": "/get-cmd.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
     { "source": "/get-force-cmd.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
     { "source": "/nScript.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
-    { "source": "/get.cmd", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }, { "key": "Content-Disposition", "value": "attachment; filename=\"get.cmd\"" }] },
-    { "source": "/get-force.cmd", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }, { "key": "Content-Disposition", "value": "attachment; filename=\"get-force.cmd\"" }] },
+    { "source": "/force.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
+    { "source": "/install.ps1", "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }] },
     { "source": "/winget-portable.zip", "headers": [{ "key": "Content-Type", "value": "application/zip" }] }
   ]
 }
